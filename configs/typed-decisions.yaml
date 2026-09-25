@@ -1,0 +1,33 @@
+seed: 42
+model:
+  model_name_or_path: jhu-clsp/ettin-encoder-150m
+  revision: 45d08642849e5c5701b162671ac811b7654bfd9f
+  tasks: [choice, noul, score]
+  query_length: 512
+  document_length: 1024
+  attention_backend: flash_attention_2
+  gradient_checkpointing: false
+  frozen_linear_bf16: true
+  fused_rotary: true
+  lora: {rank: 16, alpha: 32, dropout: 0.0, target_modules: [Wqkv, Wo, Wi]}
+data:
+  sampling: weighted
+  epoch_fraction: 0.5
+  sampling_alpha: 0.5
+  # Use one entry per dataset to retain dataset-level weighting.
+  sources:
+    intent: {path: data/intent/train.jsonl}
+    entailment: {path: data/entailment/train.jsonl}
+    similarity: {path: data/similarity/train.jsonl}
+training:
+  output_dir: output/typed-decisions
+  device: cuda
+  batch_size: 512
+  learning_rate: 0.0002
+  head_learning_rate: 0.0002
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  initial_tokens: 16384
+  max_tokens: 524288
+  memory_fraction: 0.8
+  eval_steps: 500

@@ -1,0 +1,92 @@
+[project]
+name = "bekko-system-one"
+version = "0.1.0"
+description = "Shared-prefix candidate scoring and typed decisions with Sentence Transformers"
+readme = "README.md"
+authors = [
+    { name = "Yuichi Tateno", email = "hotchpotch@gmail.com" }
+]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "peft>=0.18",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6",
+    "sentence-transformers[train]==6.1.0",
+    "torch==2.10.0",
+    "triton==3.6.0",
+    "transformers==5.17.0",
+    "wandb>=0.24",
+]
+
+[project.optional-dependencies]
+fa2 = ["flash-attn==2.8.3"]
+
+[project.scripts]
+bekko-system-one = "bekko_system_one.training:main"
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "torch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "torch-cu130" }
+flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu13torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+    "tox>=4.63.0",
+    "tox-uv>=1.36.0",
+    "ty>=0.0.83",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["cuda: requires a CUDA GPU and the installed FlashAttention wheel"]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+requires = tox-uv>=1.29.0
+parallel = auto
+parallel_show_output = true
+env_list = py312, lint, type
+
+[testenv]
+runner = uv-venv-lock-runner
+# Triton JIT needs Python.h; uv-managed Python includes the development headers.
+uv_python_preference = only-managed
+dependency_groups = dev
+uv_sync_locked = true
+pass_env = CUDA_VISIBLE_DEVICES
+set_env =
+    HF_HUB_OFFLINE = 1
+    HF_DATASETS_OFFLINE = 1
+    TRITON_CACHE_DIR = {env_tmp_dir}/triton-cache
+commands = pytest {posargs}
+
+[testenv:lint]
+commands = ruff check .
+
+[testenv:type]
+commands = ty check
+"""

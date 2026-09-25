@@ -1,0 +1,32 @@
+seed: 42
+model:
+  model_name_or_path: jhu-clsp/ettin-encoder-150m
+  revision: 45d08642849e5c5701b162671ac811b7654bfd9f
+  tasks: [reranker]
+  query_length: 128
+  document_length: 384
+  attention_backend: flash_attention_2
+  gradient_checkpointing: true
+  frozen_linear_bf16: true
+  fused_rotary: true
+  lora: {rank: 16, alpha: 32, dropout: 0.0, target_modules: [Wqkv, Wo, Wi]}
+data:
+  sampling: source_passes
+  sources:
+    msmarco: {path: data/msmarco/train.jsonl, passes: 1}
+    hotpotqa: {path: data/hotpotqa/train.jsonl, passes: 1}
+    nq: {path: data/nq/train.jsonl, passes: 1}
+    miracl_en: {path: data/miracl_en/train.jsonl, passes: 10}
+training:
+  output_dir: output/reranker
+  device: cuda
+  batch_size: 64
+  learning_rate: 0.0002
+  head_learning_rate: 0.002
+  warmup_ratio: 0.1
+  lr_scheduler: cosine
+  weight_decay: 0.01
+  initial_tokens: 16384
+  max_tokens: 524288
+  memory_fraction: 0.8
+  eval_steps: 500
