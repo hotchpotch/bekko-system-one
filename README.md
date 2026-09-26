@@ -188,3 +188,29 @@ CUDA_VISIBLE_DEVICES=0 uv run --extra fa2 pytest -m cuda
 CPU tests need no FlashAttention or downloaded weights. Tests cover standalone ST
 save/load, soft targets, gradient accumulation, prefix cache reuse, source pass
 counts, OOM replay, and CUDA forward/backward.
+
+### Task markers after the shared prefix
+
+Optionally add a learned special token at the start of each candidate branch:
+
+```yaml
+model:
+  task_tokens:
+    choice: "[CHOICE]"
+    noul: "[NOUL]"
+    score: "[SCORE]"
+```
+
+Use `Group(..., task="choice")` (or `noul` / `score`) with the usual prediction
+and training APIs. The query remains shared across tasks. A candidate is encoded
+as `[TASK] candidate [SEP]`; the marker counts toward `document_length`, and
+mean pooling includes it. Tasks absent from the mapping retain their original
+input format. Pair-only `encode()` inputs use the `reranker` task; use `Group`
+inputs for typed decisions.
+
+New marker embeddings start from the existing SEP embedding. Full finetuning
+updates them with the encoder; LoRA trains only their selected embedding rows
+alongside the adapters and heads. Token IDs, vocabulary, and weights persist in
+the saved model. For raw document scores through a typed head, use
+`rank(model, query, documents, task="score")` or the same `task` argument on
+`InferenceEngine.rank()`. This also applies the matching task marker.

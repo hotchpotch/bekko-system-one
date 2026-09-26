@@ -70,7 +70,7 @@ def predict(model, groups, *, inference="optimized", token_budget=16000):
 
 
 @torch.inference_mode()
-def rank(model, query, documents, *, chunk_size=32, inference="optimized"):
+def rank(model, query, documents, *, chunk_size=32, inference="optimized", task="reranker"):
     """Score documents with one prefix computation across all candidate chunks.
 
     Returns raw logits in the original document order. Sort descending to rank.
@@ -82,9 +82,9 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized"):
         raise ValueError("chunk_size must be positive")
     if not documents:
         return torch.empty(0)
-    Group(query, documents)
-    if "reranker" not in model[1].tasks:
-        raise ValueError("This model has no reranker head")
+    Group(query, documents, task)
+    if task not in model[1].tasks:
+        raise ValueError(f"This model has no {task} head")
     was_training = model.training
     try:
         model.eval()
@@ -94,7 +94,7 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized"):
         with torch.autocast(
             model.device.type, dtype=torch.bfloat16, enabled=model.device.type == "cuda"
         ):
-            qids, dids = encoder.tokenize_branches([query], documents)
+            qids, dids = encoder.tokenize_branches([query], documents, [task] * len(documents))
             first = to_device(encoder.collate_tokens(qids, dids[:1], [0]), model.device)
             cache = encoder.encoder.encode_prefix(first["prefix_ids"], first["prefix_mask"])
             scores = []
@@ -110,7 +110,7 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized"):
                 )
                 features = dict(
                     sentence_embedding=encoder.pool(hidden, f["doc_mask"]),
-                    head_indices={"reranker": None},
+                    head_indices={task: None},
                 )
                 scores.append(active[1](features)["scores"].flatten())
             return torch.cat(scores).float().cpu()
@@ -164,6 +164,8 @@ class InferenceEngine:
         """Return probabilities in input order, using the selected inference mode."""
         return predict(self.model, groups, inference=self.inference, token_budget=self.token_budget)
 
-    def rank(self, query, documents, *, chunk_size=32):
+    def rank(self, query, documents, *, chunk_size=32, task="reranker"):
         """Return raw reranker scores, reusing the prefix across candidate chunks."""
-        return rank(self.model, query, documents, chunk_size=chunk_size, inference=self.inference)
+        return rank(
+            self.model, query, documents, chunk_size=chunk_size, inference=self.inference, task=task
+        )

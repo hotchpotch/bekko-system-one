@@ -39,6 +39,7 @@ class SharedPrefix(InputModule):
         frozen_linear_bf16=True,
         fused_rotary=True,
         lora=None,
+        task_tokens=None,
         backbone=None,
         tokenizer=None,
     ):
@@ -67,6 +68,50 @@ class SharedPrefix(InputModule):
         ):
             raise ValueError("Tokenizer requires CLS, SEP, and PAD tokens")
         self.tokenizer = tokenizer
+        self.task_tokens = dict(task_tokens or {})
+        if (
+            any(t not in {"choice", "noul", "score", "reranker"} for t in self.task_tokens)
+            or any(not isinstance(v, str) or not v.strip() for v in self.task_tokens.values())
+            or len(set(self.task_tokens.values())) != len(self.task_tokens)
+        ):
+            raise ValueError("task_tokens must map supported tasks to distinct nonempty tokens")
+        if self.task_tokens and document_length < 3:
+            raise ValueError("Task tokens require document_length >= 3")
+        self.task_token_ids = {}
+        if self.task_tokens:
+            # Fork RNG so vocabulary extension does not change subsequent head initialization.
+            # Initialize new markers identically from SEP to isolate learned task identity.
+            existing_special = set(tokenizer.all_special_tokens)
+            for marker in self.task_tokens.values():
+                if marker in tokenizer.get_vocab() and marker not in existing_special:
+                    raise ValueError("Task markers must not replace ordinary vocabulary tokens")
+                if marker in {
+                    tokenizer.cls_token,
+                    tokenizer.sep_token,
+                    tokenizer.pad_token,
+                    tokenizer.unk_token,
+                    tokenizer.mask_token,
+                    tokenizer.bos_token,
+                    tokenizer.eos_token,
+                }:
+                    raise ValueError("Task markers must be distinct from built-in special tokens")
+            old_vocab = tokenizer.get_vocab()
+            tokenizer.add_special_tokens(
+                {"extra_special_tokens": list(self.task_tokens.values())},
+                replace_extra_special_tokens=False,
+            )
+            self.task_token_ids = {
+                task: tokenizer.convert_tokens_to_ids(marker)
+                for task, marker in self.task_tokens.items()
+            }
+            with torch.random.fork_rng(devices=[]):
+                if len(tokenizer) > backbone.get_input_embeddings().num_embeddings:
+                    backbone.resize_token_embeddings(len(tokenizer), mean_resizing=False)
+            with torch.no_grad():
+                weight = backbone.get_input_embeddings().weight
+                for task, marker in self.task_tokens.items():
+                    if marker not in old_vocab:
+                        weight[self.task_token_ids[task]].copy_(weight[tokenizer.sep_token_id])
         self.query_length, self.document_length = query_length, document_length
         self.hidden_size = backbone.config.hidden_size
         self.backbone_config = backbone.config.to_dict()
@@ -81,6 +126,7 @@ class SharedPrefix(InputModule):
                     lora_dropout=lora.get("dropout", 0.0),
                     target_modules=lora.get("target_modules", ["Wqkv", "Wo", "Wi"]),
                     bias="none",
+                    trainable_token_indices=list(self.task_token_ids.values()) or None,
                 ),
             )
         elif frozen_linear_bf16:
@@ -103,6 +149,7 @@ class SharedPrefix(InputModule):
             frozen_linear_bf16=frozen_linear_bf16,
             fused_rotary=fused_rotary,
             lora=lora,
+            task_tokens=self.task_tokens,
         )
 
     def preprocess(self, inputs, prompt=None, **kwargs):
@@ -121,7 +168,14 @@ class SharedPrefix(InputModule):
             query_ids, [docs[p[1]] for p in inputs], [lookup[p[0]] for p in inputs]
         )
 
-    def tokenize_branches(self, queries, documents):
+    def tokenize_branches(self, queries, documents, document_tasks=None):
+        """Prefix each candidate with its configured task marker, within its token budget."""
+        if document_tasks is None:
+            document_tasks = ["reranker"] * len(documents)
+        if len(document_tasks) != len(documents) or any(
+            t not in {"choice", "noul", "score", "reranker"} for t in document_tasks
+        ):
+            raise ValueError("document_tasks must align with candidates and use supported tasks")
         qids = self.tokenizer(
             queries,
             add_special_tokens=False,
@@ -136,7 +190,16 @@ class SharedPrefix(InputModule):
         )["input_ids"]
         return (
             [[self.tokenizer.cls_token_id, *q, self.tokenizer.sep_token_id] for q in qids],
-            [[*d, self.tokenizer.sep_token_id] for d in dids],
+            [
+                [
+                    self.task_token_ids[task],
+                    *d[: self.document_length - 2],
+                    self.tokenizer.sep_token_id,
+                ]
+                if task in self.task_token_ids
+                else [*d, self.tokenizer.sep_token_id]
+                for d, task in zip(dids, document_tasks, strict=True)
+            ],
         )
 
     def collate_tokens(self, queries, documents, owners):

@@ -55,11 +55,15 @@ class PreparedGroup:
 
 def prepare_groups(groups, encoder):
     queries = list(dict.fromkeys(g.query for g in groups))
-    documents = list(dict.fromkeys(d for g in groups for d in g.candidates))
-    qids, dids = encoder.tokenize_branches(queries, documents)
+    documents = list(dict.fromkeys((g.task, d) for g in groups for d in g.candidates))
+    qids, dids = encoder.tokenize_branches(
+        queries, [d for _, d in documents], [t for t, _ in documents]
+    )
     qmap, dmap = dict(zip(queries, qids, strict=True)), dict(zip(documents, dids, strict=True))
     return [
-        PreparedGroup(g.query, g.task, qmap[g.query], [dmap[d] for d in g.candidates], g.target)
+        PreparedGroup(
+            g.query, g.task, qmap[g.query], [dmap[g.task, d] for d in g.candidates], g.target
+        )
         for g in groups
     ]
 
