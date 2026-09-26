@@ -15,8 +15,8 @@ from .stratification import select_balanced_cases
 
 
 def validate_prefix_layout(prefix_layout):
-    if prefix_layout not in ("instruction_state", "state"):
-        raise ValueError("prefix_layout must be instruction_state or state")
+    if prefix_layout not in ("instruction_state", "state_instruction"):
+        raise ValueError("prefix_layout must be instruction_state or state_instruction")
 
 
 def render_group(row, position, *, prefix_layout="instruction_state"):
@@ -34,7 +34,10 @@ def render_group(row, position, *, prefix_layout="instruction_state"):
     if not isinstance(instruction, str) or not instruction.strip() or not isinstance(system, str):
         raise ValueError("Expected nonempty instruction and string system_prompt")
     prefix = f"{system}\n\n" if system.strip() else ""
-    query = f"{prefix}Instruction: {instruction}\nState: {row['state_json']}"
+    if prefix_layout == "state_instruction":
+        query = f"{prefix}State: {row['state_json']}\nInstruction: {instruction}"
+    else:
+        query = f"{prefix}Instruction: {instruction}\nState: {row['state_json']}"
     options = decision["options"]
     ids = [o["id"] for o in options]
     if len(set(ids)) != len(ids):
@@ -45,11 +48,6 @@ def render_group(row, position, *, prefix_layout="instruction_state"):
         candidates = [f"Document: {o['description']}" for o in options]
     else:
         candidates = [f"Candidate: {o['id']}: {o['description']}" for o in options]
-    if prefix_layout == "state":
-        query = f"State: {row['state_json']}"
-        candidates = [
-            f"{prefix}Instruction: {instruction}\n{candidate}" for candidate in candidates
-        ]
     target = decision.get("target")
     if target is None:
         raise ValueError("Release training/evaluation requires labels")

@@ -133,7 +133,7 @@ def test_exclusion_rejects_invalid_config(tmp_path, excluded):
         load_release(tmp_path / "release", "train", exclude_datasets=excluded)
 
 
-@pytest.mark.parametrize("prefix_layout", ["instruction_state", "state"])
+@pytest.mark.parametrize("prefix_layout", ["instruction_state", "state_instruction"])
 def test_checkpoint_release_training_and_full_test(
     tmp_path, tiny_encoder, monkeypatch, prefix_layout
 ):
@@ -158,7 +158,7 @@ def test_checkpoint_release_training_and_full_test(
     checked = []
 
     def step(loaded, *args):
-        assert args[0][0].query.startswith("State:" if prefix_layout == "state" else "Instruction:")
+        assert args[0][0].query.startswith("State:" if prefix_layout == "state_instruction" else "Instruction:")
         if not checked:
             for key, value in loaded.state_dict().items():
                 torch.testing.assert_close(value, original[key], rtol=0, atol=0)
@@ -221,26 +221,31 @@ def test_checkpoint_release_training_and_full_test(
 
 
 @pytest.mark.parametrize("ranking", [False, True])
-def test_state_prefix_moves_all_instructions_and_preserves_targets(ranking):
+def test_prefix_order_preserves_candidates_and_targets(ranking):
     row = case(0, ranking=ranking)
     row["decision_prompts"] = [
         dict(row["decision_prompts"][0], instruction="good", system_prompt="first system"),
         dict(row["decision_prompts"][1], instruction="bad", system_prompt="second system"),
     ]
-    a, b = [render_group(row, i, prefix_layout="state") for i in range(2)]
-    assert a.query == b.query == 'State: {"query":"question"}'
+    a, b = [render_group(row, i, prefix_layout="state_instruction") for i in range(2)]
+    assert a.query == 'first system\n\nState: {"query":"question"}\nInstruction: good'
+    assert b.query == 'second system\n\nState: {"query":"question"}\nInstruction: bad'
     assert a.target == b.target == [0.2, 0.8]
     option = "Document: bad" if ranking else "Candidate: b: bad"
-    assert a.candidates[0] == f"first system\n\nInstruction: good\n{option}"
-    assert b.candidates[0] == f"second system\n\nInstruction: bad\n{option}"
+    baseline = render_group(row, 0, prefix_layout="instruction_state")
+    assert baseline.query == 'first system\n\nInstruction: good\nState: {"query":"question"}'
+    assert a.candidates == b.candidates == baseline.candidates
+    assert a.candidates[0] == option
+    assert a.target == baseline.target
     assert "secret_label" not in a.query + "".join(a.candidates)
     # Labels cannot affect inference text in either layout.
     row["decisions"][0]["target"]["probabilities"] = [1.0, 0.0]
-    changed = render_group(row, 0, prefix_layout="state")
+    changed = render_group(row, 0, prefix_layout="state_instruction")
     assert (changed.query, changed.candidates) == (a.query, a.candidates)
 
 
-def test_state_sharing_matches_separate_decisions_and_gradients(tiny_encoder):
+@pytest.mark.parametrize("prefix_layout", ["instruction_state", "state_instruction"])
+def test_prefix_orders_match_separate_decisions_and_gradients(tiny_encoder, prefix_layout):
     import torch
     from sentence_transformers import SentenceTransformer
 
@@ -253,14 +258,14 @@ def test_state_sharing_matches_separate_decisions_and_gradients(tiny_encoder):
         dict(row["decision_prompts"][0], instruction="good"),
         dict(row["decision_prompts"][1], instruction="bad"),
     ]
-    groups = [render_group(row, i, prefix_layout="state") for i in range(2)]
+    groups = [render_group(row, i, prefix_layout=prefix_layout) for i in range(2)]
     model = SentenceTransformer(
         modules=[tiny_encoder, DecisionHeads(tiny_encoder.hidden_size, ["choice"])], device="cpu"
     )
     model.eval()
     features = prepare_batch(model, groups)
-    assert features["prefix_ids"].shape[0] == 1
-    assert features["owners"].tolist() == [0, 0, 0, 0]
+    assert features["prefix_ids"].shape[0] == 2
+    assert features["owners"].tolist() == [0, 0, 1, 1]
     together = model(features)["scores"]
     targets = [g.target for g in groups]
     joint_loss = distribution_loss_sum(together, targets) / len(groups)
@@ -279,7 +284,7 @@ def test_state_sharing_matches_separate_decisions_and_gradients(tiny_encoder):
     assert any(g.abs().sum() > 0 for n, g in grads.items() if "lora_B" in n)
 
 
-@pytest.mark.parametrize("layout", ["typo", None, 1, []])
+@pytest.mark.parametrize("layout", ["typo", "state", "on", "off", None, 1, []])
 def test_invalid_prefix_layout_is_rejected_before_loading(tmp_path, layout):
     with pytest.raises(ValueError, match="prefix_layout"):
         load_release(tmp_path / "missing", "train", prefix_layout=layout)
@@ -291,4 +296,4 @@ def test_prefix_layout_requires_structured_release(tmp_path):
     from bekko_system_one.training import run
 
     with pytest.raises(ValueError, match="prefix_layout requires data.root"):
-        run(dict(training=dict(device="cpu"), data=dict(sources={}, prefix_layout="state")))
+        run(dict(training=dict(device="cpu"), data=dict(sources={}, prefix_layout="state_instruction")))

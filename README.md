@@ -265,26 +265,23 @@ accommodates it. Input limits apply equally to initial and final evaluation.
 
 ### Sharing state across instructions
 
-Release training supports two input layouts through `data.prefix_layout`:
+Release training supports two input orders through `data.prefix_layout`:
 
 | Layout | Shared query branch | Candidate branch |
 | --- | --- | --- |
 | `instruction_state` (default) | System prompt, instruction, state | Candidate or document |
-| `state` | State only | System prompt, instruction, candidate or document |
+| `state_instruction` | System prompt, state, instruction | Candidate or document |
 
-Set `data.prefix_layout: state` to reuse the state representation across different
-instructions when their states match exactly and they land in the same microbatch.
-The same layout applies to training, validation and test. Each decision retains
-its own candidate softmax and loss, including soft targets; candidates from different
-instructions never compete. All candidates backpropagate through the shared state.
-This is a two-branch layout: instructions are repeated in candidate branches,
-not separately cached as a third level. Decision sampling and microbatch packing
-are unchanged, so cross-instruction reuse is not guaranteed in every batch.
+Both layouts keep the system prompt first and keep the instruction and state in
+one shared query branch. Only their order changes; candidate text, soft targets,
+sampling, and attention structure are unchanged. Different instructions still
+produce different query prefixes even when the state is identical.
+`query_length` covers the full query branch and `document_length` covers the
+candidate branch. Changing order can change which text survives truncation.
 
-`query_length` limits the state branch in this mode. `document_length` includes
-the system prompt and instruction as well as the candidate, so allow enough space
-for all three. State encoding is independent of the instruction; this changes the
-attention structure and requires measuring task quality, not just throughput.
+The previous experimental `state` layout moved instructions into candidate
+branches. It is no longer accepted; it must not be treated as an alias for
+`state_instruction`, since these layouts have different semantics.
 
 The selected layout is recorded in `data_manifest.json` and the saved model's
 `release_rendering.json`. For inference on release rows, read that file and call
