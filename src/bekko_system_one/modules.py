@@ -288,6 +288,8 @@ class SharedPrefix(InputModule):
         settings = cls.load_config(model_name_or_path, **hub)
         overrides = kwargs.get("model_kwargs") or {}
         for key in (
+            "query_length",
+            "document_length",
             "attention_backend",
             "gradient_checkpointing",
             "frozen_linear_bf16",

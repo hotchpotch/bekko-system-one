@@ -41,3 +41,8 @@ def test_cosine_scheduler_warmup_and_group_lr_ratio():
     assert rates[10] == [0.0, 0.0]
     for low, high in rates:
         assert abs(high - low * 10) < 1e-12
+
+
+def test_source_passes_defaults_for_manifest_sources():
+    batches = list(source_batches({"a": 5}, {}, mode="source_passes", batch_size=3, seed=42))
+    assert sorted(i for _, rows in batches for i in rows) == list(range(5))
