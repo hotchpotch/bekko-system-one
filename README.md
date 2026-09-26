@@ -109,11 +109,70 @@ adaptive microbatches retain whole candidate groups. Each microbatch loss sum is
 divided by the actual logical batch size. An OOM discards partial gradients and
 replays the whole batch with restored random state and a smaller token budget.
 
-`bekko_system_one.inference.SharedPrefixInference` provides a separate inference
-snapshot with fused gather/RoPE and optional CUDA Graph capture. Construct it with
-an evaluated model and CPU feature dictionary; `score(features)` returns logits.
-Masks, ownership, and head routing must remain fixed; `cache_prefix=True` also
-fixes prefix tokens. Save the original model rather than an inference snapshot.
+`predict()` and `rank()` default to `inference="optimized"`: shared prefixes,
+packed tokens and cached inference snapshots, without custom Triton kernels or
+CUDA Graph capture. On CUDA with FlashAttention 2, encoder linear weights are
+precast to BF16; decision heads remain FP32. Training's fused RoPE is disabled
+in these snapshots as well. The source model and its training mode are preserved.
+
+`predict()` tokenizes once and batches whole questions with `token_budget=16000`,
+preserving question/candidate order. An oversized question runs alone. `rank()`
+computes the prefix once across all candidate chunks in a call.
+
+Enable Triton fusion explicitly through `InferenceEngine`:
+
+```python
+from bekko_system_one import InferenceEngine
+
+engine = InferenceEngine(typed)
+probabilities = engine.predict(groups)  # no custom Triton JIT
+engine.prepare_fast_inference()  # no example groups required
+probabilities = engine.predict(groups)  # kernels compile lazily as needed
+
+# Optional: move warmup work ahead of serving real requests.
+engine.prepare_fast_inference(example_groups=representative_groups)
+
+legacy = InferenceEngine(typed, inference="legacy")
+probabilities = legacy.predict(groups)
+```
+
+`prepare_fast_inference()` enables fused RoPE and K/V gather on CUDA/FA2 and
+returns the engine. Without examples it creates/reuses the snapshot, executing
+no kernels; actual inputs drive compilation automatically. Optional examples
+warm up prediction twice. Empty examples are valid. Unseen lengths, candidate
+counts or task routing need no new user preparation; additional JIT work may
+occur on a cache miss. CPU and non-FA2 models keep the portable, unfused forward.
+This is a package-specific preparation API, not PyTorch `compile()`.
+
+In fast mode, `predict()` captures a CUDA Graph on the second occurrence of an
+exact layout. The cache keeps at most two layouts sharing one snapshot; other
+layouts use fused eager inference. Masks, ownership, head routing and stream
+must match for replay. Example warmup only retains the layouts that fit this
+cache, not every possible future input. `rank()` uses fused eager inference with
+per-call prefix reuse. Snapshot creation, JIT and graph capture add startup cost
+and memory; repeated calls reuse their results.
+
+The functional API also accepts `inference="fast"` for lazy fusion, or
+`inference="legacy"` for the previous path. Engines and functional calls share
+one runtime cache per source model; changing mode replaces that cached runtime.
+
+`inference="legacy"` preserves the previous inference implementation; for
+`predict()` it uses a single batch and ignores `token_budget` for batching.
+Ordinary SentenceTransformer `encode()` and direct `model(features)` calls retain
+their existing behavior. Training evaluation also retains its existing forward.
+
+Normal optimizer updates, `load_state_dict()`, parameter replacement and device
+or dtype changes invalidate the cached snapshot on the next optimized call.
+After changing adapter selection or other runtime configuration, or mutating
+weights through `.data`, call `clear_inference_cache(model)` (exported at package
+level). It also releases the cached snapshot and graphs. Do not modify/train the
+source model concurrently with inference. Save the original model; runtime caches
+are external to the module and are not part of its checkpoint.
+
+For explicit fixed-layout sessions,
+`bekko_system_one.inference.SharedPrefixInference` remains available. Construct
+it with an evaluated model and CPU features; `score(features)` returns logits.
+`cache_prefix=True` also fixes prefix tokens and reuses their K/V across calls.
 
 Different lengths, batch layouts, and BF16 kernels can produce small numerical
 differences. Benchmark the intended workload: packaging alone is not an

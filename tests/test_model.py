@@ -180,3 +180,37 @@ def test_fa2_fused_forward_backward(tiny_encoder):
     ):
         if p.grad is not None:
             torch.testing.assert_close(p.grad, q.grad, atol=2e-4, rtol=2e-2)
+
+
+def test_predict_budget_preserves_order_and_legacy(tiny_encoder):
+    model = model_for(tiny_encoder)
+    groups = [
+        Group("query", ["good", "bad"], "choice"),
+        Group("long query", ["other", "long text", "bad"], "score"),
+        Group("other", ["bad", "good"], "noul"),
+    ]
+    expected = predict(model, groups, inference="legacy")
+    actual = predict(model, groups, token_budget=1)
+    assert model.training
+    for a, b in zip(actual, expected, strict=True):
+        torch.testing.assert_close(a, b)
+    with pytest.raises(ValueError, match="inference"):
+        predict(model, groups, inference="unknown")
+    with pytest.raises(ValueError, match="token_budget"):
+        predict(model, groups, token_budget=0)
+
+
+def test_engine_optional_examples_and_cpu_fallback(tiny_encoder):
+    from bekko_system_one import InferenceEngine
+
+    model = model_for(tiny_encoder)
+    groups = [Group("query", ["good", "bad"], "choice")]
+    engine = InferenceEngine(model)
+    expected = engine.predict(groups)
+    assert engine.prepare_fast_inference() is engine
+    for a, b in zip(engine.predict(groups), expected, strict=True):
+        torch.testing.assert_close(a, b, atol=0, rtol=0)
+    assert engine.prepare_fast_inference(example_groups=groups) is engine
+    assert engine.prepare_fast_inference(example_groups=[]) is engine
+    assert engine.predict([]) == []
+    assert model.training

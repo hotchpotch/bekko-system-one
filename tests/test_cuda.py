@@ -53,3 +53,88 @@ def test_cuda_graph_and_routing_validation(tiny_encoder, cache_prefix):
     changed = {**features, "head_indices": {"choice": None}}
     with pytest.raises(ValueError, match="routing"):
         session.score(changed)
+
+
+def test_fast_inference_snapshot_graph_and_weight_update(tiny_encoder):
+    pytest.importorskip("flash_attn")
+    from bekko_system_one import InferenceEngine, clear_inference_cache, predict
+    from bekko_system_one.inference import _RUNTIMES
+
+    tiny_encoder.encoder.backend = "flash_attention_2"
+    model = SentenceTransformer(
+        modules=[tiny_encoder, DecisionHeads(32, ["choice", "noul", "reranker"])], device="cuda"
+    )
+    groups = [Group("query", ["good", "bad"], "choice"), Group("other", ["bad", "good"], "noul")]
+    engine = InferenceEngine(model).prepare_fast_inference()
+    before = {n: p.clone() for n, p in model.named_parameters()}
+    expected = predict(model, groups, inference="legacy")
+    for _ in range(3):
+        actual = engine.predict(groups)
+        for a, b in zip(actual, expected, strict=True):
+            torch.testing.assert_close(a, b, atol=2e-4, rtol=2e-3)
+    # Same layout, different tokens must update both prefix and candidate inputs.
+    changed = [Group("other", ["bad", "good"], "choice"), Group("query", ["good", "bad"], "noul")]
+    for a, b in zip(
+        engine.predict(changed), predict(model, changed, inference="legacy"), strict=True
+    ):
+        torch.testing.assert_close(a, b, atol=2e-4, rtol=2e-3)
+    assert model.training
+    runtime = _RUNTIMES[model][1]
+    assert any(session is not None for session in runtime.layouts.values())
+    for n, p in model.named_parameters():
+        torch.testing.assert_close(p, before[n], atol=0, rtol=0)
+    torch.testing.assert_close(
+        engine.rank("query", ["good", "bad"], chunk_size=1),
+        InferenceEngine(model, inference="legacy").rank("query", ["good", "bad"], chunk_size=1),
+        atol=2e-4,
+        rtol=2e-3,
+    )
+    with torch.no_grad():
+        next(model[1].parameters()).add_(0.5)
+    actual = engine.predict(groups)
+    assert _RUNTIMES[model][1] is not runtime
+    for a, b in zip(actual, predict(model, groups, inference="legacy"), strict=True):
+        torch.testing.assert_close(a, b, atol=2e-4, rtol=2e-3)
+    clear_inference_cache(model)
+    assert model not in _RUNTIMES
+
+    # Layout churn is bounded; a different routing cannot replay an old graph.
+    for size in range(2, 6):
+        different = [Group("query", ["good"] * size, "reranker")]
+        engine.predict(different)
+        engine.predict(different)
+        assert len(_RUNTIMES[model][1].layouts) <= 2
+    clear_inference_cache(model)
+
+
+def test_unprepared_engine_does_not_run_triton(tiny_encoder, monkeypatch):
+    pytest.importorskip("flash_attn")
+    from bekko_system_one import InferenceEngine
+    from bekko_system_one.inference import _RUNTIMES
+
+    tiny_encoder.encoder.backend = "flash_attention_2"
+    tiny_encoder.encoder.fused_rotary = True
+    model = SentenceTransformer(
+        modules=[tiny_encoder, DecisionHeads(32, ["choice"])], device="cuda"
+    )
+    groups = [Group("query", ["good", "bad"], "choice")]
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Triton invoked before explicit preparation")
+
+    with monkeypatch.context() as patch:
+        patch.setattr("bekko_system_one.cuda_kernels.rotary_qkv", forbidden)
+        patch.setattr("bekko_system_one.cuda_kernels.gather_kv", forbidden)
+        patch.setattr("bekko_system_one.cuda_training.training_rotary_qkv", forbidden)
+        engine = InferenceEngine(model)
+        expected = engine.predict(groups)
+        engine.predict(groups)
+        assert not _RUNTIMES[model][1].layouts
+        # No representative inputs means enabling the path executes no kernels.
+        assert engine.prepare_fast_inference() is engine
+    actual = engine.predict(groups)
+    for a, b in zip(actual, expected, strict=True):
+        torch.testing.assert_close(a, b, atol=2e-4, rtol=2e-3)
+    engine.prepare_fast_inference(example_groups=groups)
+    assert any(session is not None for session in _RUNTIMES[model][1].layouts.values())
+    assert tiny_encoder.encoder.fused_rotary is True

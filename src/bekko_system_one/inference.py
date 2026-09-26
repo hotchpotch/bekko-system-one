@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import copy
 import threading
+import weakref
+from collections import OrderedDict
 
 import torch
 from torch import nn
@@ -54,6 +56,7 @@ def prepare_shared_inference(model, *, precast_linear=True, fused_ops=True):
     if model.training:
         raise ValueError("Call model.eval() before preparing inference")
     result = copy.deepcopy(model).eval().requires_grad_(False)
+    result[0].encoder.fused_rotary = False
     if fused_ops:
         original = result[0].encoder
         result[0].encoder = FusedPrefixEncoder(original.backbone, backend=original.backend).eval()
@@ -76,10 +79,13 @@ class SharedPrefixInference:
         use_graph=True,
         precast_linear=True,
         fused_ops=True,
+        _prepared=False,
     ):
         self.device = next(model.parameters()).device
-        self._model = prepare_shared_inference(
-            model, precast_linear=precast_linear, fused_ops=fused_ops
+        self._model = (
+            model
+            if _prepared
+            else prepare_shared_inference(model, precast_linear=precast_linear, fused_ops=fused_ops)
         )
         self._encoder = self._model[0].encoder
         keys = ("prefix_ids", "prefix_mask", "doc_ids", "doc_mask", "owners")
@@ -176,3 +182,82 @@ class SharedPrefixInference:
                 return self._output.clone()
             with torch.autocast("cuda", dtype=torch.bfloat16, cache_enabled=False):
                 return self._forward().clone()
+
+
+# Keep runtime state outside nn.Module: saving a model never saves snapshots/graphs.
+_RUNTIMES = weakref.WeakKeyDictionary()
+_RUNTIME_LOCK = threading.RLock()
+
+
+def clear_inference_cache(model):
+    """Release cached snapshots/graphs, e.g. after changing adapters or configuration."""
+    with _RUNTIME_LOCK:
+        _RUNTIMES.pop(model, None)
+
+
+def _revision(model):
+    return (
+        tuple(
+            (n, id(t), t._version, t.device, t.dtype)
+            for n, t in (*model.named_parameters(), *model.named_buffers())
+        ),
+        repr(model[0].settings),
+        model[0].encoder.backend,
+        tuple((n, id(m)) for n, m in model.named_modules()),
+    )
+
+
+class _Runtime:
+    def __init__(self, model, *, fused_ops):
+        cuda_fa2 = model.device.type == "cuda" and model[0].encoder.backend == "flash_attention_2"
+        self.fused_ops = fused_ops and cuda_fa2
+        if cuda_fa2:
+            self.model = prepare_shared_inference(model, fused_ops=fused_ops)
+        else:
+            self.model = copy.deepcopy(model).eval().requires_grad_(False)
+            self.model[0].encoder.fused_rotary = False
+        self.layouts = OrderedDict()
+        self.lock = threading.RLock()
+
+    def score(self, features):
+        from .data import to_device
+
+        if not self.fused_ops:
+            return self.model(to_device(features, self.model.device))["scores"]
+
+        # Exact masks/ownership/routing are required, not just padded shapes.
+        key = (
+            tuple(
+                (k, tuple(features[k].shape), tuple(features[k].flatten().tolist()))
+                for k in ("prefix_mask", "doc_mask", "owners")
+            ),
+            repr(features.get("head_indices")),
+            torch.cuda.current_stream(self.model.device).cuda_stream,
+        )
+        with self.lock:
+            if key in self.layouts:
+                session = self.layouts.pop(key)
+                if session is None:
+                    session = SharedPrefixInference(self.model, features, _prepared=True)
+                self.layouts[key] = session
+                return session.score(features)
+            # Bound graph memory. Capture only when a layout is seen again.
+            if len(self.layouts) >= 2:
+                self.layouts.popitem(last=False)
+            self.layouts[key] = None
+            return self.model(to_device(features, self.model.device))["scores"]
+
+
+def inference_runtime(model, mode):
+    """Resolve optimized CUDA/FA2 inference, with the portable legacy fallback."""
+    if mode not in {"optimized", "fast", "legacy"}:
+        raise ValueError("inference must be 'optimized', 'fast' or 'legacy'")
+    if mode == "legacy":
+        return None
+    with _RUNTIME_LOCK:
+        revision = (_revision(model), mode)
+        cached = _RUNTIMES.get(model)
+        if cached is None or cached[0] != revision:
+            cached = (revision, _Runtime(model, fused_ops=mode == "fast"))
+            _RUNTIMES[model] = cached
+        return cached[1]
