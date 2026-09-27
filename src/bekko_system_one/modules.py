@@ -33,6 +33,7 @@ class SharedPrefix(InputModule):
         *,
         revision=None,
         query_length=512,
+        query_truncation="right",
         document_length=1024,
         attention_backend="flash_attention_2",
         gradient_checkpointing=False,
@@ -112,6 +113,9 @@ class SharedPrefix(InputModule):
                 for task, marker in self.task_tokens.items():
                     if marker not in old_vocab:
                         weight[self.task_token_ids[task]].copy_(weight[tokenizer.sep_token_id])
+        if query_truncation not in {"right", "balanced"}:
+            raise ValueError("query_truncation must be right or balanced")
+        self.query_truncation = query_truncation
         self.query_length, self.document_length = query_length, document_length
         self.hidden_size = backbone.config.hidden_size
         self.backbone_config = backbone.config.to_dict()
@@ -143,6 +147,7 @@ class SharedPrefix(InputModule):
         self.encoder.fused_rotary = fused_rotary
         self.settings = dict(
             query_length=query_length,
+            query_truncation=query_truncation,
             document_length=document_length,
             attention_backend=attention_backend,
             gradient_checkpointing=gradient_checkpointing,
@@ -168,7 +173,7 @@ class SharedPrefix(InputModule):
             query_ids, [docs[p[1]] for p in inputs], [lookup[p[0]] for p in inputs]
         )
 
-    def tokenize_branches(self, queries, documents, document_tasks=None):
+    def tokenize_branches(self, queries, documents, document_tasks=None, *, query_parts=None):
         """Prefix each candidate with its configured task marker, within its token budget."""
         if document_tasks is None:
             document_tasks = ["reranker"] * len(documents)
@@ -176,12 +181,22 @@ class SharedPrefix(InputModule):
             t not in {"choice", "noul", "score", "reranker"} for t in document_tasks
         ):
             raise ValueError("document_tasks must align with candidates and use supported tasks")
-        qids = self.tokenizer(
-            queries,
-            add_special_tokens=False,
-            truncation=True,
-            max_length=self.query_length - 2,
-        )["input_ids"]
+        if self.query_truncation == "balanced":
+            from .query_budget import balanced_query_ids
+
+            if query_parts is None or len(query_parts) != len(queries):
+                raise ValueError("balanced query truncation requires aligned QueryParts")
+            if any(p is None or p.render() != q for p, q in zip(query_parts, queries, strict=True)):
+                raise ValueError("QueryParts must match the rendered query")
+            qids = balanced_query_ids(self.tokenizer, query_parts, self.query_length)
+        else:
+            tokens = self.tokenizer(
+                queries,
+                add_special_tokens=False,
+                truncation=True,
+                max_length=self.query_length - 2,
+            )["input_ids"]
+            qids = [[self.tokenizer.cls_token_id, *q, self.tokenizer.sep_token_id] for q in tokens]
         dids = self.tokenizer(
             documents,
             add_special_tokens=False,
@@ -189,7 +204,7 @@ class SharedPrefix(InputModule):
             max_length=self.document_length - 1,
         )["input_ids"]
         return (
-            [[self.tokenizer.cls_token_id, *q, self.tokenizer.sep_token_id] for q in qids],
+            qids,
             [
                 [
                     self.task_token_ids[task],
@@ -289,6 +304,7 @@ class SharedPrefix(InputModule):
         overrides = kwargs.get("model_kwargs") or {}
         for key in (
             "query_length",
+            "query_truncation",
             "document_length",
             "attention_backend",
             "gradient_checkpointing",

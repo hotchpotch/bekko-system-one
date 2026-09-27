@@ -133,9 +133,11 @@ def test_exclusion_rejects_invalid_config(tmp_path, excluded):
         load_release(tmp_path / "release", "train", exclude_datasets=excluded)
 
 
+@pytest.mark.parametrize("query_truncation", ["right", "balanced"])
+@pytest.mark.parametrize("sampling", ["weighted", "uniform"])
 @pytest.mark.parametrize("prefix_layout", ["instruction_state", "state_instruction"])
 def test_checkpoint_release_training_and_full_test(
-    tmp_path, tiny_encoder, monkeypatch, prefix_layout
+    tmp_path, tiny_encoder, monkeypatch, prefix_layout, sampling, query_truncation
 ):
     import torch
     from sentence_transformers import SentenceTransformer
@@ -158,7 +160,9 @@ def test_checkpoint_release_training_and_full_test(
     checked = []
 
     def step(loaded, *args):
-        assert args[0][0].query.startswith("State:" if prefix_layout == "state_instruction" else "Instruction:")
+        assert args[0][0].query.startswith(
+            "State:" if prefix_layout == "state_instruction" else "Instruction:"
+        )
         if not checked:
             for key, value in loaded.state_dict().items():
                 torch.testing.assert_close(value, original[key], rtol=0, atol=0)
@@ -170,11 +174,18 @@ def test_checkpoint_release_training_and_full_test(
     out = tmp_path / "run"
     training.run(
         dict(
-            model=dict(checkpoint=str(checkpoint), query_length=48),
+            model=dict(
+                checkpoint=str(checkpoint), query_length=48, query_truncation=query_truncation
+            ),
             data=dict(
                 root=str(tmp_path / "release"),
                 epoch_fraction=1,
-                sampling_alpha=0.5,
+                sampling=sampling,
+                **(
+                    dict(dataset_samples={"a": 5})
+                    if sampling == "uniform"
+                    else dict(sampling_alpha=0.5)
+                ),
                 exclude_datasets=["excluded"],
                 prefix_layout=prefix_layout,
             ),
@@ -200,6 +211,10 @@ def test_checkpoint_release_training_and_full_test(
         )
     )
     assert checked
+    if sampling == "uniform":
+        result = json.loads((out / "result.json").read_text())
+        assert result["trained_decisions"] == 5
+        assert json.loads((out / "sampling_plan.json").read_text())["selected_counts"] == {"a": 5}
     audit = json.loads((out / "data_manifest.json").read_text())
     assert all(audit[role]["prefix_layout"] == prefix_layout for role in audit)
     assert json.loads((out / "model/release_rendering.json").read_text()) == dict(
@@ -216,6 +231,7 @@ def test_checkpoint_release_training_and_full_test(
         str(out / "model"), device="cpu", local_files_only=True, trust_remote_code=True
     )
     assert restored[0].query_length == 48
+    assert restored[0].query_truncation == query_truncation
     assert any(not torch.equal(v, original[k]) for k, v in restored.state_dict().items())
     assert (out / "test-initial-summary.json").is_file()
 
@@ -296,4 +312,9 @@ def test_prefix_layout_requires_structured_release(tmp_path):
     from bekko_system_one.training import run
 
     with pytest.raises(ValueError, match="prefix_layout requires data.root"):
-        run(dict(training=dict(device="cpu"), data=dict(sources={}, prefix_layout="state_instruction")))
+        run(
+            dict(
+                training=dict(device="cpu"),
+                data=dict(sources={}, prefix_layout="state_instruction"),
+            )
+        )

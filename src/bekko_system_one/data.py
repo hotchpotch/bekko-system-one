@@ -7,6 +7,8 @@ from dataclasses import dataclass
 
 import torch
 
+from .query_budget import QueryParts
+
 
 @dataclass(frozen=True)
 class Group:
@@ -14,8 +16,11 @@ class Group:
     candidates: list[str]
     task: str = "reranker"
     target: list[float] | None = None
+    query_parts: QueryParts | None = None
 
     def __post_init__(self):
+        if self.query_parts is not None and self.query_parts.render() != self.query:
+            raise ValueError("query must match query_parts.render()")
         if self.task not in {"reranker", "choice", "noul", "score"}:
             raise ValueError(f"Unknown task: {self.task}")
         if not isinstance(self.query, str) or not self.query.strip():
@@ -37,12 +42,13 @@ class Group:
             candidates=row["candidates"],
             task=row.get("task", "reranker"),
             target=row.get("target"),
+            query_parts=QueryParts(**row["query_parts"]) if row.get("query_parts") else None,
         )
 
 
 @dataclass
 class PreparedGroup:
-    key: str
+    key: str | tuple[int, ...]
     task: str
     query: list[int]
     documents: list[list[int]]
@@ -54,15 +60,22 @@ class PreparedGroup:
 
 
 def prepare_groups(groups, encoder):
-    queries = list(dict.fromkeys(g.query for g in groups))
+    queries = list(dict.fromkeys((g.query, g.query_parts) for g in groups))
     documents = list(dict.fromkeys((g.task, d) for g in groups for d in g.candidates))
     qids, dids = encoder.tokenize_branches(
-        queries, [d for _, d in documents], [t for t, _ in documents]
+        [q for q, _ in queries],
+        [d for _, d in documents],
+        [t for t, _ in documents],
+        query_parts=[p for _, p in queries],
     )
     qmap, dmap = dict(zip(queries, qids, strict=True)), dict(zip(documents, dids, strict=True))
     return [
         PreparedGroup(
-            g.query, g.task, qmap[g.query], [dmap[g.task, d] for d in g.candidates], g.target
+            tuple(qmap[g.query, g.query_parts]),
+            g.task,
+            qmap[g.query, g.query_parts],
+            [dmap[g.task, d] for d in g.candidates],
+            g.target,
         )
         for g in groups
     ]

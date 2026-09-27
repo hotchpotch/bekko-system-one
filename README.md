@@ -347,3 +347,197 @@ than one logical batch are excluded and reported in `result.json`.
 Metrics include per-dataset/task cross-entropy, accuracy (ties in the target count
 as correct), Brier score and target mass at the predicted candidate. Summary files
 weight datasets equally within each task and tasks equally for mean cross-entropy.
+
+### Per-dataset sampling without replacement
+
+Use `data.sampling: uniform` to visit a configured fraction of each source,
+without alpha weighting or repeated decisions:
+
+```yaml
+data:
+  root: /path/to/release
+  sampling: uniform
+  epoch_fraction: 0.1
+  dataset_samples:
+    large_dataset: "20%"
+    another_dataset: 200000
+```
+
+Limits use **decision counts**, not case counts. A percentage or integer specifies
+the source budget at `epoch_fraction: 1`. For each source, training selects
+`floor(base_count * epoch_fraction)` decisions, where a percentage sets
+`base_count = floor(source_count * percentage)` and an integer sets
+`base_count = min(source_count, integer)`. Thus 20% followed by a 10% run selects
+approximately 2% of the original source (subject to integer rounding). Unlisted
+sources default to 100%; zero skips a source. Unknown or excluded source names
+are rejected. Validation and test are unaffected.
+
+Remove `sampling_alpha` when using this mode; supplying it is an error.
+`dataset_samples` is only valid with `sampling: uniform` and `epoch_fraction`
+must be in `(0, 1]`. The selection is reproducible for a fixed seed and source
+ordering; smaller budgets select nested subsets when the seed and per-source
+limits are unchanged. Logical batches contain one source, their order is
+shuffled, and partial final batches are retained. Each selected decision is
+visited once. Source-pass repetition settings do not apply to this mode.
+
+`sampling_plan.json` records the original counts, per-source base budgets and
+selected counts. `result.json` records the actual number of trained decisions.
+A `max_steps` smoke limit can stop before the full selection is visited; the plan
+still describes the full requested budget.
+
+### Mixing instruction and state order during training
+
+Supply weights instead of a fixed `prefix_layout` to choose an order for each
+training decision:
+
+```yaml
+data:
+  root: /path/to/release
+  prefix_layout_weights:
+    instruction_state: 1
+    state_instruction: 1
+```
+
+There is no `auto` flag. Equal weights give a 50/50 probability; `3:1` gives
+75/25. Observed counts need not match the ratio exactly. Missing layouts have
+weight zero. Weights must be finite nonnegative numbers with a positive total.
+Specifying both `prefix_layout` and `prefix_layout_weights` is an error. If both
+are absent, the default remains `instruction_state`. Mixed layouts require
+structured release data (`data.root`).
+
+The selection uses a separate seeded random stream, so evaluation and source
+sampling do not consume its random state. Each occurrence of a decision gets one
+order shared by all its candidates; a later occurrence may get another order.
+Orders are selected before microbatching and remain unchanged during OOM retries.
+The system prompt stays first and candidate text is unchanged.
+
+Mixed training evaluates **both fixed orders**, even if a training weight is zero,
+on the exact same validation/test samples. Output names include the order, for
+example `test-instruction_state-summary.json` and
+`test-state_instruction-summary.json`, or
+`validation-100-state_instruction-summary.json`. No ambiguous unsuffixed evaluation
+file is written. Evaluation therefore does more work than fixed-order training.
+
+History records each batch's `prefix_layout_counts` and `prefix_layout_sha256`;
+`result.json` records total layout counts. `data_manifest.json` and the saved
+model's `release_rendering.json` record the weights and evaluation layouts.
+At inference time, explicitly choose a fixed layout in `render_group`; training
+weights do not make inference random or automatically detect the input layout.
+
+For controlled comparisons, fixed-layout training can also evaluate both orders:
+set `evaluation.prefix_layouts: [instruction_state, state_instruction]`. This
+uses the same order-suffixed evaluation filenames as mixed training. Set
+`evaluation.validation_seed` to fix validation case selection independently of
+the training seed; otherwise it defaults to the training seed.
+
+### Balanced instruction/context truncation
+
+For structured release inputs, set the model's `query_truncation` to `balanced`:
+
+```yaml
+model:
+  query_length: 4096
+  document_length: 2048
+  query_truncation: balanced
+```
+
+The query limit includes CLS/SEP, the system prompt, field labels, and the
+separator. After reserving those tokens, half of the remaining budget is
+available to each of instruction and context. Unused capacity transfers to the
+other field. For a 4,000-token content budget, lengths of 8,000/1,000 retain
+3,000/1,000; lengths of 1,000/7,000 retain 1,000/3,000. If both exceed their
+shares, each retains 2,000. An odd token goes to instruction. Field tails are
+removed. A system prompt that leaves fewer than two content tokens raises an
+error instead of silently removing the fields.
+
+Components are tokenized separately before layout selection, so both layouts
+retain identical content token sequences. This can differ from tokenizing a
+single concatenated string even when no truncation is necessary. The setting
+is saved in the model and used for training and evaluation; checkpoints without
+it retain the existing `right` truncation behavior. Candidate tokenization still
+uses the independent `document_length` limit.
+
+Release rendering supplies explicit field boundaries automatically. For custom
+inference or JSONL inputs, supply `QueryParts` rather than attempting to recover
+boundaries from text labels:
+
+```python
+from bekko_system_one import Group, QueryParts, predict
+
+parts = QueryParts(
+    instruction="Choose the supported answer.",
+    context="Evidence to assess.",
+    system="Evaluate the evidence carefully.",
+    layout="state_instruction",
+)
+group = Group(parts.render(), ["Candidate A", "Candidate B"], "choice", query_parts=parts)
+probabilities = predict(model, [group])
+```
+
+`Group.from_dict` accepts a `query_parts` object with these same fields. Its
+`query` must match `QueryParts.render()`. Balanced models reject unstructured
+queries, including plain `(query, candidate)` pairs and `rank` calls; use the
+structured group API. This avoids silently applying a different policy at
+inference time. Switching truncation policies also changes evaluation inputs,
+so evaluate comparison checkpoints with the same policy.
+
+### Trial budgets from one configuration
+
+Use the same base YAML for small trials:
+
+```bash
+bekko-system-one --config train.yaml --smoke
+bekko-system-one --config train.yaml --train-percent 1
+```
+
+`--smoke` means 0.1%; `--train-percent 1` means 1%. These options replace
+`data.epoch_fraction`, rather than multiplying its existing value. With uniform
+sampling, the fraction is applied to each dataset **after** its configured cap,
+rounded down to whole decisions. Small datasets can therefore contribute zero
+decisions to a smoke run. Weighted sampling uses the fraction as its usual total
+presentation budget. Percentage overrides are not supported for `source_passes`.
+
+The output directory automatically gets `-smoke` or `-1pct` appended to its
+basename. Use `--output-dir runs/another-trial` for a repeat; existing directories
+are never overwritten. `--max-steps` remains an optional additional step limit.
+Evaluation settings and the initial checkpoint stay as specified in the YAML:
+a 1% trial starts independently from that checkpoint, not from the smoke output.
+The effective settings are saved in each run's `training_config.json`; uniform
+runs also save their exact per-dataset counts in `sampling_plan.json`. No extra
+YAML files are needed.
+
+### System One v1 case format
+
+`bekko_system_one.dataset_schema` defines the `system_one.v1` case format. It keeps
+model input separate from targets while allowing structured task context:
+
+```python
+from bekko_system_one.dataset_schema import from_legacy, inference_input, dataset_features
+
+structured_row = from_legacy(legacy_row)
+model_input = inference_input(structured_row)
+```
+
+The Arrow row stores `input.state_json` with `input.decisions`. A decision is
+either a `judgment`, with a Noul, Choice, or Score type and typed `criteria`, or
+a `ranking`, with a list of `documents`. The separate `targets` list stores
+decision IDs, target IDs, probabilities, and annotation kind. Targets and
+provenance are outside `input`. State, instructions, criterion descriptions,
+and document contents are JSON strings so structured values can be preserved.
+Use `dataset_features()` when creating a Hugging Face `Dataset` from converted rows.
+
+Ranking documents and judgment criteria have distinct roles. An IR reranking
+case can put the query in the shared state and its candidate documents in one
+ranking decision; its target distribution is relative to that candidate set. A
+pointwise relevance case can put one query-document pair in the state and use a
+Score decision with ordered relevance criteria. Its target is a judgment on
+that score scale.
+
+`inference_input(structured_row)` returns the parsed state and decisions without
+targets, provenance, or conversion metadata. Keep targets on the training and
+evaluation side of the boundary. The release loader accepts both `system_one.v1`
+rows and legacy flat rows. `DecisionSource` indexes structured decisions against the
+separate target list, and `render_group` adapts a selected case at render time.
+Converted rows retain the established rendering, candidate order and text, and
+target alignment. Uniform and balanced sampling both select whole cases, even
+when a case has several decisions.

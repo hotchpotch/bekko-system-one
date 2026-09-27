@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import math
 import random
 import time
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -43,14 +45,34 @@ def load_sources(specs):
     return sources
 
 
-def source_batches(counts, specs, *, mode, batch_size, seed, epoch_fraction=1.0, alpha=0.5):
+def source_batches(
+    counts, specs, *, mode, batch_size, seed, epoch_fraction=1.0, alpha=0.5, dataset_samples=None
+):
     """Yield source-homogeneous logical batches with reproducible row indices."""
     if batch_size < 1 or not math.isfinite(epoch_fraction) or epoch_fraction <= 0:
         raise ValueError("batch_size and epoch_fraction must be positive")
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
     rng = random.Random(seed)
-    if mode == "source_passes":
+    if mode == "uniform":
+        from .sampling import uniform_counts
+
+        bases, selected = uniform_counts(
+            counts, {} if dataset_samples is None else dataset_samples, epoch_fraction
+        )
+        schedule = [n for n in sorted(counts) for _ in range(math.ceil(selected[n] / batch_size))]
+        rng.shuffle(schedule)
+        pools, offsets = {}, {}
+        for name in schedule:
+            if name not in pools:
+                source_rng = random.Random(f"{seed}:{name}:uniform-v1")
+                pools[name] = source_rng.sample(range(counts[name]), bases[name])[: selected[name]]
+                offsets[name] = 0
+            start = offsets[name]
+            rows = pools[name][start : start + batch_size]
+            offsets[name] += len(rows)
+            yield name, rows
+    elif mode == "source_passes":
         batch_counts = {}
         for name, count in counts.items():
             passes = specs.get(name, {}).get("passes", 1)
@@ -88,7 +110,7 @@ def source_batches(counts, specs, *, mode, batch_size, seed, epoch_fraction=1.0,
             offsets[name] += batch_size
             yield name, pools[name][start : start + batch_size].tolist()
     else:
-        raise ValueError("sampling must be source_passes or weighted")
+        raise ValueError("sampling must be uniform, source_passes or weighted")
 
 
 def optimizer_for(model, learning_rate, head_learning_rate, weight_decay=0.01):
@@ -222,6 +244,15 @@ def run(config, max_steps=None):
         raise ValueError("batch_size and max_steps must be positive")
     if "root" in data and "sources" in data:
         raise ValueError("Choose data.root or data.sources, not both")
+    from .layout_sampling import LAYOUTS, LayoutSampler
+
+    layout_sampler = None
+    if "prefix_layout_weights" in data:
+        if "prefix_layout" in data:
+            raise ValueError("Choose prefix_layout or prefix_layout_weights, not both")
+        if "root" not in data:
+            raise ValueError("prefix_layout_weights requires data.root")
+        layout_sampler = LayoutSampler(data["prefix_layout_weights"], config.get("seed", 42))
     prefix_layout = data.get("prefix_layout", "instruction_state")
     validate_prefix_layout(prefix_layout)
     if "prefix_layout" in data and "root" not in data:
@@ -234,6 +265,18 @@ def run(config, max_steps=None):
     if not 0 <= train.get("warmup_ratio", 0.1) < 1:
         raise ValueError("warmup_ratio must be in [0, 1)")
     evaluation = config.get("evaluation", {})
+    evaluation_layouts = evaluation.get("prefix_layouts")
+    if evaluation_layouts is not None:
+        if "root" not in data or not isinstance(evaluation_layouts, list) or not evaluation_layouts:
+            raise ValueError("evaluation.prefix_layouts requires data.root and a nonempty list")
+        for layout in evaluation_layouts:
+            validate_prefix_layout(layout)
+        if len(set(evaluation_layouts)) != len(evaluation_layouts):
+            raise ValueError("evaluation.prefix_layouts must not contain duplicates")
+        if layout_sampler is not None and set(evaluation_layouts) != set(LAYOUTS):
+            raise ValueError("Mixed training requires evaluation of both prefix layouts")
+    elif layout_sampler is not None:
+        evaluation_layouts = list(LAYOUTS)
     eval_budget = evaluation.get("token_budget", 16000)
     if eval_budget < 1:
         raise ValueError("evaluation.token_budget must be positive")
@@ -250,7 +293,7 @@ def run(config, max_steps=None):
             "validation",
             sample_cases=evaluation.get("validation_samples", 5),
             sampling=evaluation.get("validation_sampling", "uniform"),
-            seed=config.get("seed", 42),
+            seed=evaluation.get("validation_seed", config.get("seed", 42)),
             exclude_datasets=evaluation.get("validation_exclude_datasets"),
             prefix_layout=prefix_layout,
         )
@@ -280,11 +323,30 @@ def run(config, max_steps=None):
     fraction = data.get("epoch_fraction", 1.0)
     if not math.isfinite(fraction) or fraction <= 0:
         raise ValueError("epoch_fraction must be finite and positive")
-    if mode not in {"weighted", "source_passes"}:
-        raise ValueError("sampling must be source_passes or weighted")
+    if mode not in {"weighted", "source_passes", "uniform"}:
+        raise ValueError("sampling must be uniform, source_passes or weighted")
     alpha = data.get("sampling_alpha", 0.5)
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
+    sample_plan = None
+    selected = {}
+    if mode == "uniform":
+        from .sampling import uniform_counts
+
+        if "sampling_alpha" in data:
+            raise ValueError("uniform sampling does not use sampling_alpha; remove it")
+        bases, selected = uniform_counts(counts, data.get("dataset_samples", {}), fraction)
+        sample_plan = dict(
+            mode=mode,
+            seed=config.get("seed", 42),
+            unit="decision",
+            source_counts=counts,
+            base_counts=bases,
+            selected_counts=selected,
+            epoch_fraction=fraction,
+        )
+    elif "dataset_samples" in data:
+        raise ValueError("dataset_samples requires sampling: uniform")
     steps = (
         sum(
             math.ceil(n / batch_size) * data.get("sources", {}).get(name, {}).get("passes", 1)
@@ -293,18 +355,31 @@ def run(config, max_steps=None):
         if mode == "source_passes"
         else int(sum(counts.values()) * fraction) // batch_size
     )
+    if sample_plan is not None:
+        steps = sum(math.ceil(n / batch_size) for n in selected.values())
     steps = min(steps, max_steps) if max_steps is not None else steps
     if steps < 1:
         raise ValueError("Training budget does not contain a complete batch")
     out = Path(train["output_dir"])
     out.mkdir(parents=True, exist_ok=False)
+    if sample_plan is not None:
+        (out / "sampling_plan.json").write_text(json.dumps(sample_plan, indent=2))
     (out / "training_config.json").write_text(json.dumps(config, indent=2))
+    if layout_sampler is not None:
+        audits["train"].pop("prefix_layout", None)
+        audits["train"]["prefix_layout_weights"] = data["prefix_layout_weights"]
+    if evaluation_layouts is not None:
+        for role in ["validation", "test"]:
+            if role in audits:
+                audits[role].pop("prefix_layout", None)
+                audits[role]["prefix_layouts"] = evaluation_layouts
     (out / "data_manifest.json").write_text(json.dumps(audits, indent=2))
     model_config = dict(config["model"])
     checkpoint = model_config.pop("checkpoint", None)
     if checkpoint is not None:
         allowed = {
             "query_length",
+            "query_truncation",
             "document_length",
             "attention_backend",
             "gradient_checkpointing",
@@ -330,9 +405,18 @@ def run(config, max_steps=None):
         model = build_model(**model_config, device=device)
 
     def save_evaluation(label, selected):
-        result = evaluate(model, selected, batch_size, eval_budget)
-        (out / f"{label}.json").write_text(json.dumps(result, indent=2))
-        (out / f"{label}-summary.json").write_text(json.dumps(macro_metrics(result), indent=2))
+        layouts = evaluation_layouts if evaluation_layouts is not None else (None,)
+        for layout in layouts:
+            rendered = selected
+            suffix = label
+            if layout is not None:
+                rendered = {name: copy.copy(source) for name, source in selected.items()}
+                for source in rendered.values():
+                    source.prefix_layout = layout
+                suffix = f"{label}-{layout}"
+            result = evaluate(model, rendered, batch_size, eval_budget)
+            (out / f"{suffix}.json").write_text(json.dumps(result, indent=2))
+            (out / f"{suffix}-summary.json").write_text(json.dumps(macro_metrics(result), indent=2))
 
     if evaluation.get("before_training", False):
         if validation:
@@ -360,6 +444,7 @@ def run(config, max_steps=None):
         target_bytes, maximum = 2**60, initial
     controller = TokenBudget(initial, maximum=maximum, target_bytes=target_bytes)
     started = time.monotonic()
+    trained_decisions = 0
     with (out / "history.jsonl").open("w") as history:
         for step, (name, rows) in enumerate(
             source_batches(
@@ -370,12 +455,23 @@ def run(config, max_steps=None):
                 seed=config.get("seed", 42),
                 epoch_fraction=fraction,
                 alpha=data.get("sampling_alpha", 0.5),
+                dataset_samples=data.get("dataset_samples"),
             ),
             1,
         ):
             step_started = time.monotonic()
             learning_rates = [group["lr"] for group in optimizer.param_groups]
-            groups = source_groups(sources[name], rows)
+            layout_stats = {}
+            if layout_sampler is not None:
+                layouts = layout_sampler.sample(len(rows))
+                groups = sources[name].groups(rows, prefix_layouts=layouts)
+                layout_stats = dict(
+                    prefix_layout_counts=dict(Counter(layouts)),
+                    prefix_layout_sha256=hashlib.sha256(json.dumps(layouts).encode()).hexdigest(),
+                )
+            else:
+                groups = source_groups(sources[name], rows)
+            trained_decisions += len(groups)
             stats = train_step(model, groups, optimizer, controller)
             scheduler.step()
             entry = dict(
@@ -387,6 +483,7 @@ def run(config, max_steps=None):
                 step_seconds=time.monotonic() - step_started,
                 learning_rates=learning_rates,
                 **stats,
+                **layout_stats,
             )
             history.write(json.dumps(entry) + "\n")
             history.flush()
@@ -400,7 +497,15 @@ def run(config, max_steps=None):
     model.save_pretrained(str(out / "model"), create_model_card=False)
     if "root" in data:
         (out / "model" / "release_rendering.json").write_text(
-            json.dumps(dict(prefix_layout=prefix_layout), indent=2)
+            json.dumps(
+                dict(
+                    prefix_layout_weights=data["prefix_layout_weights"],
+                    evaluation_prefix_layouts=list(LAYOUTS),
+                )
+                if layout_sampler is not None
+                else dict(prefix_layout=prefix_layout),
+                indent=2,
+            )
         )
     del scheduler, optimizer, model
     if device == "cuda":
@@ -417,7 +522,7 @@ def run(config, max_steps=None):
         save_evaluation("test", test)
     result = dict(
         steps=steps,
-        trained_decisions=steps * batch_size if mode == "weighted" else None,
+        trained_decisions=trained_decisions,
         source_decisions=counts,
         excluded_small_sources=[n for n, c in counts.items() if c < batch_size]
         if mode == "weighted"
@@ -426,16 +531,37 @@ def run(config, max_steps=None):
         seconds=time.monotonic() - started,
         model=str(out / "model"),
     )
+    if layout_sampler is not None:
+        result["prefix_layout_counts"] = dict(layout_sampler.counts)
     (out / "result.json").write_text(json.dumps(result, indent=2))
     return result
 
 
 def main():
+    from .cli import resolve_config, train_percent
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True)
+    budget = parser.add_mutually_exclusive_group()
+    budget.add_argument("--smoke", action="store_true", help="Train 0.1%% of the configured pool")
+    budget.add_argument(
+        "--train-percent",
+        type=train_percent,
+        help="Replace epoch_fraction with this percentage (after caps for uniform sampling)",
+    )
+    parser.add_argument(
+        "--output-dir", help="Override output directory; existing paths are rejected"
+    )
     parser.add_argument("--max-steps", type=int)
     args = parser.parse_args()
-    run(yaml.safe_load(Path(args.config).read_text()), args.max_steps)
+    config = resolve_config(
+        yaml.safe_load(Path(args.config).read_text()),
+        smoke=args.smoke,
+        percent=args.train_percent,
+        output_dir=args.output_dir,
+        max_steps=args.max_steps,
+    )
+    run(config)
 
 
 if __name__ == "__main__":

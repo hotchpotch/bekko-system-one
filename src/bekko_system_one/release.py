@@ -11,6 +11,9 @@ import numpy as np
 from datasets import Dataset, concatenate_datasets, load_from_disk
 
 from .data import Group
+from .dataset_schema import VERSION as DATASET_SCHEMA_VERSION
+from .dataset_training import training_view
+from .query_budget import QueryParts
 from .stratification import select_balanced_cases
 
 
@@ -22,6 +25,8 @@ def validate_prefix_layout(prefix_layout):
 def render_group(row, position, *, prefix_layout="instruction_state"):
     """Render only state, aligned instructions and options; preserve soft targets."""
     validate_prefix_layout(prefix_layout)
+    if row.get("schema_version") == DATASET_SCHEMA_VERSION and "input" in row:
+        row = training_view(row)
     decision = row["decisions"][position]
     prompts = row["decision_prompts"]
     if prompts is None or len(prompts) != len(row["decisions"]):
@@ -33,11 +38,8 @@ def render_group(row, position, *, prefix_layout="instruction_state"):
     system = prompt.get("system_prompt") or ""
     if not isinstance(instruction, str) or not instruction.strip() or not isinstance(system, str):
         raise ValueError("Expected nonempty instruction and string system_prompt")
-    prefix = f"{system}\n\n" if system.strip() else ""
-    if prefix_layout == "state_instruction":
-        query = f"{prefix}State: {row['state_json']}\nInstruction: {instruction}"
-    else:
-        query = f"{prefix}Instruction: {instruction}\nState: {row['state_json']}"
+    parts = QueryParts(instruction, row["state_json"], system, prefix_layout)
+    query = parts.render()
     options = decision["options"]
     ids = [o["id"] for o in options]
     if len(set(ids)) != len(ids):
@@ -55,7 +57,7 @@ def render_group(row, position, *, prefix_layout="instruction_state"):
     if len(set(target_ids)) != len(target_ids) or set(target_ids) != set(ids):
         raise ValueError("Target IDs must match option IDs")
     mapping = dict(zip(target_ids, target["probabilities"], strict=True))
-    return Group(query, candidates, decision["type"], [mapping[i] for i in ids])
+    return Group(query, candidates, decision["type"], [mapping[i] for i in ids], parts)
 
 
 class DecisionSource:
@@ -67,29 +69,62 @@ class DecisionSource:
         if dataset._indices is not None:
             dataset = dataset.flatten_indices(keep_in_memory=True)
         self.dataset = dataset
-        if not {"decisions", "decision_prompts", "state_json"} <= set(dataset.column_names):
-            raise ValueError("Release requires decisions, decision_prompts and state_json")
-        lengths = []
-        for chunk in dataset.data.column("decisions").chunks:
-            if chunk.null_count or chunk.values.field("target").null_count:
-                raise ValueError("Unlabeled decisions cannot enter training/evaluation")
-            lengths.append(np.diff(chunk.offsets.to_numpy()))
+        self.structured_format = "input" in dataset.column_names
+        if self.structured_format:
+            if not {"schema_version", "targets"} <= set(dataset.column_names):
+                raise ValueError("Structured release requires schema_version and targets")
+            lengths = []
+            for batch in dataset.data.to_batches(max_chunksize=256):
+                versions = batch.column(batch.schema.get_field_index("schema_version"))
+                if any(version.as_py() != DATASET_SCHEMA_VERSION for version in versions):
+                    raise ValueError(
+                        f"Expected {DATASET_SCHEMA_VERSION} rows in structured release"
+                    )
+                input_array = batch.column(batch.schema.get_field_index("input"))
+                target_array = batch.column(batch.schema.get_field_index("targets"))
+                if input_array.null_count or target_array.null_count:
+                    raise ValueError("Unlabeled decisions cannot enter training/evaluation")
+                decisions = input_array.field("decisions")
+                if decisions.null_count or decisions.values.null_count:
+                    raise ValueError("Unlabeled decisions cannot enter training/evaluation")
+                targets = target_array
+                if targets.values.null_count or targets.values.field("kind").null_count:
+                    raise ValueError("Unlabeled decisions cannot enter training/evaluation")
+                decision_lengths = np.diff(decisions.offsets.to_numpy())
+                target_lengths = np.diff(targets.offsets.to_numpy())
+                if not np.array_equal(decision_lengths, target_lengths):
+                    raise ValueError("Decision/target alignment mismatch")
+                lengths.append(decision_lengths)
+        else:
+            if not {"decisions", "decision_prompts", "state_json"} <= set(dataset.column_names):
+                raise ValueError("Release requires decisions, decision_prompts and state_json")
+            lengths = []
+            for chunk in dataset.data.column("decisions").chunks:
+                if chunk.null_count or chunk.values.field("target").null_count:
+                    raise ValueError("Unlabeled decisions cannot enter training/evaluation")
+                lengths.append(np.diff(chunk.offsets.to_numpy()))
         self.ends = np.cumsum(np.concatenate(lengths) if lengths else [], dtype=np.int64)
 
     def __len__(self):
         return int(self.ends[-1]) if len(self.ends) else 0
 
-    def groups(self, indices):
+    def groups(self, indices, *, prefix_layouts=None):
+        if prefix_layouts is None:
+            prefix_layouts = [self.prefix_layout] * len(indices)
+        if len(prefix_layouts) != len(indices):
+            raise ValueError("Expected one prefix layout per decision")
         cases = np.searchsorted(self.ends, indices, side="right")
-        # Decode a multi-decision case only once within this batch.
+        # Restore each multi-decision case only once within this batch.
         rows = {int(i): self.dataset[int(i)] for i in np.unique(cases)}
+        if self.structured_format:
+            rows = {i: training_view(row) for i, row in rows.items()}
         return [
             render_group(
                 rows[int(case)],
                 int(index - (self.ends[case - 1] if case else 0)),
-                prefix_layout=self.prefix_layout,
+                prefix_layout=layout,
             )
-            for index, case in zip(indices, cases, strict=True)
+            for index, case, layout in zip(indices, cases, prefix_layouts, strict=True)
         ]
 
 

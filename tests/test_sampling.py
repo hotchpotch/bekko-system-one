@@ -46,3 +46,52 @@ def test_cosine_scheduler_warmup_and_group_lr_ratio():
 def test_source_passes_defaults_for_manifest_sources():
     batches = list(source_batches({"a": 5}, {}, mode="source_passes", batch_size=3, seed=42))
     assert sorted(i for _, rows in batches for i in rows) == list(range(5))
+
+
+def test_uniform_quotas_nested_subsets_and_small_tails():
+    from bekko_system_one.sampling import uniform_counts
+
+    counts = {"large": 1000, "absolute": 99, "small": 9}
+    caps = {"large": "20%", "absolute": 30}
+    assert uniform_counts(counts, caps, 0.1)[1] == {"large": 20, "absolute": 3, "small": 0}
+    seen = {}
+    for fraction in [0.1, 0.5, 1.0]:
+        kwargs = dict(
+            mode="uniform", batch_size=8, seed=42, epoch_fraction=fraction, dataset_samples=caps
+        )
+        batches = list(source_batches(counts, {}, **kwargs))
+        assert batches == list(source_batches(counts, {}, **kwargs))
+        rows = defaultdict(list)
+        for name, indices in batches:
+            assert 0 < len(indices) <= 8
+            rows[name].extend(indices)
+        selected = uniform_counts(counts, caps, fraction)[1]
+        for name, expected in selected.items():
+            assert len(rows[name]) == len(set(rows[name])) == expected
+            assert set(seen.get(name, [])) <= set(rows[name])
+        seen = rows
+    assert len(seen["small"]) == 9
+
+
+def test_uniform_rejects_invalid_limits():
+    import pytest
+
+    from bekko_system_one.sampling import uniform_counts
+
+    for caps in [
+        {"typo": 1},
+        {"a": -1},
+        {"a": True},
+        {"a": 0.2},
+        {"a": "NaN%"},
+        {"a": "101%"},
+        {"a": "bad%"},
+        [],
+    ]:
+        with pytest.raises(ValueError):
+            uniform_counts({"a": 10}, caps, 0.1)
+    for fraction in [0, 1.1, float("nan")]:
+        with pytest.raises(ValueError):
+            uniform_counts({"a": 10}, {}, fraction)
+    assert uniform_counts({"a": 10}, {"a": 100}, 1)[1] == {"a": 10}
+    assert uniform_counts({"a": 10}, {"a": 0}, 1)[1] == {"a": 0}

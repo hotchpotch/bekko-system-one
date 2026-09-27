@@ -7,6 +7,9 @@ from collections import Counter, defaultdict
 
 import numpy as np
 
+from .dataset_schema import VERSION as DATASET_SCHEMA_VERSION
+from .dataset_training import training_view
+
 
 def _signature(decision):
     return hashlib.sha256(
@@ -15,9 +18,17 @@ def _signature(decision):
 
 
 def _decisions(dataset):
-    # Decode only the needed column, in bounded batches, never rendered inputs.
-    for batch in dataset.select_columns(["decisions"]).iter(batch_size=256):
-        yield from batch["decisions"]
+    # Keep decoding bounded; structured conversion also needs its reversible legacy metadata.
+    if "input" not in dataset.column_names:
+        for batch in dataset.select_columns(["decisions"]).iter(batch_size=256):
+            yield from batch["decisions"]
+        return
+    for batch in dataset.iter(batch_size=256):
+        for row_index, schema_version in enumerate(batch["schema_version"]):
+            if schema_version != DATASET_SCHEMA_VERSION:
+                raise ValueError(f"Expected {DATASET_SCHEMA_VERSION} rows in structured release")
+            row = {name: values[row_index] for name, values in batch.items()}
+            yield training_view(row)["decisions"]
 
 
 def select_balanced_cases(dataset, *, cap, seed, name):
