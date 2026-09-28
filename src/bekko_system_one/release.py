@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from datasets import Dataset, concatenate_datasets, load_from_disk
 
-from .data import Group
+from .data import DecisionMetadata, Group
 from .dataset_schema import VERSION as DATASET_SCHEMA_VERSION
 from .dataset_training import training_view
 from .query_budget import QueryParts
@@ -22,10 +22,10 @@ def validate_prefix_layout(prefix_layout):
         raise ValueError("prefix_layout must be instruction_state or state_instruction")
 
 
-def render_group(row, position, *, prefix_layout="instruction_state"):
+def render_group(row, position, *, prefix_layout="instruction_state", require_target=True):
     """Render only state, aligned instructions and options; preserve soft targets."""
     validate_prefix_layout(prefix_layout)
-    if row.get("schema_version") == DATASET_SCHEMA_VERSION and "input" in row:
+    if "input" in row:
         row = training_view(row)
     decision = row["decisions"][position]
     prompts = row["decision_prompts"]
@@ -38,26 +38,69 @@ def render_group(row, position, *, prefix_layout="instruction_state"):
     system = prompt.get("system_prompt") or ""
     if not isinstance(instruction, str) or not instruction.strip() or not isinstance(system, str):
         raise ValueError("Expected nonempty instruction and string system_prompt")
-    parts = QueryParts(instruction, row["state_json"], system, prefix_layout)
-    query = parts.render()
     options = decision["options"]
     ids = [o["id"] for o in options]
     if len(set(ids)) != len(ids):
         raise ValueError("Duplicate option IDs")
+    state = row["state_json"]
+    if decision["type"] == "noul":
+        descriptions = {o["id"]: o["description"] for o in options}
+        if set(ids) == {"true", "false"}:
+            yes, no = descriptions["true"], descriptions["false"]
+        elif set(ids) == {"yes", "no"}:
+            yes, no = descriptions["yes"], descriptions["no"]
+        else:
+            raise ValueError("Noul requires explicit true/false or yes/no criteria")
+        # Put both meanings before the evidence so context truncation keeps them.
+        # An envelope preserves arbitrary state values and existing 'noul' keys.
+        state = json.dumps(
+            {"noul": {"yes": yes, "no": no}, "state": json.loads(state)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    parts = QueryParts(instruction, state, system, prefix_layout)
+    query = parts.render()
     if prompt.get("input_format") == "reranking":
         if decision["type"] != "score":
             raise ValueError("Document ranking requires the score head")
         candidates = [f"Document: {o['description']}" for o in options]
     else:
         candidates = [f"Candidate: {o['id']}: {o['description']}" for o in options]
+    values = [o.get("value") for o in options]
+    metadata = DecisionMetadata(
+        candidate_ids=tuple(ids),
+        candidate_values=tuple(values) if all(v is not None for v in values) else None,
+        kind="ranking" if prompt.get("input_format") == "reranking" else "judgment",
+        case_id=row.get("case_id"),
+        group_id=row.get("group_id"),
+        decision_id=decision["decision_id"],
+    )
     target = decision.get("target")
     if target is None:
-        raise ValueError("Release training/evaluation requires labels")
+        if require_target:
+            raise ValueError("Release training/evaluation requires labels")
+        return Group(query, candidates, decision["type"], query_parts=parts, metadata=metadata)
     target_ids = target["option_ids"]
     if len(set(target_ids)) != len(target_ids) or set(target_ids) != set(ids):
         raise ValueError("Target IDs must match option IDs")
     mapping = dict(zip(target_ids, target["probabilities"], strict=True))
-    return Group(query, candidates, decision["type"], [mapping[i] for i in ids], parts)
+    return Group(query, candidates, decision["type"], [mapping[i] for i in ids], parts, metadata)
+
+
+def render_input_group(case_input, position, *, prefix_layout="instruction_state"):
+    """Render a native case's input alone for prediction, using the training layout.
+
+    ``case_input`` contains ``state_json`` and ``decisions`` as defined by the structured
+    dataset schema. Targets, provenance and legacy bridge data are never needed.
+    Candidate order (and thus prediction order) follows criteria/documents.
+    """
+    row = {
+        **dict.fromkeys(("case_id", "group_id", "input_hash", "split", "language"), ""),
+        "schema_version": DATASET_SCHEMA_VERSION,
+        "input": case_input,
+        "targets": [],
+    }
+    return render_group(row, position, prefix_layout=prefix_layout, require_target=False)
 
 
 class DecisionSource:
@@ -71,12 +114,15 @@ class DecisionSource:
         self.dataset = dataset
         self.structured_format = "input" in dataset.column_names
         if self.structured_format:
-            if not {"schema_version", "targets"} <= set(dataset.column_names):
-                raise ValueError("Structured release requires schema_version and targets")
+            if "targets" not in dataset.column_names:
+                raise ValueError("Structured release requires targets")
             lengths = []
             for batch in dataset.data.to_batches(max_chunksize=256):
-                versions = batch.column(batch.schema.get_field_index("schema_version"))
-                if any(version.as_py() != DATASET_SCHEMA_VERSION for version in versions):
+                version_index = batch.schema.get_field_index("schema_version")
+                if version_index >= 0 and any(
+                    version.as_py() != DATASET_SCHEMA_VERSION
+                    for version in batch.column(version_index)
+                ):
                     raise ValueError(
                         f"Expected {DATASET_SCHEMA_VERSION} rows in structured release"
                     )
@@ -138,7 +184,7 @@ def load_release(
     sampling="uniform",
     prefix_layout="instruction_state",
 ):
-    """Select only explicit manifest entries; validation never falls back to test.
+    """Select local manifest entries or Hub config splits, without split fallback.
 
     Sampling is without replacement, capped across all matching splits
     of a dataset. All decisions in a selected case remain together.
@@ -152,9 +198,22 @@ def load_release(
         not isinstance(sample_cases, int) or isinstance(sample_cases, bool) or sample_cases < 1
     ):
         raise ValueError("sample_cases must be a positive integer or null")
-    root = Path(root)
-    manifest_path = root / "training-manifest.json"
-    manifest = json.loads(manifest_path.read_text())
+    source_audit = {}
+    if isinstance(root, dict):
+        from .hub_release import HubRelease
+
+        hub = HubRelease(root)
+        manifest = hub.manifest
+        manifest_bytes = json.dumps(manifest, sort_keys=True).encode()
+        source_audit = {"source": hub.audit}
+        load_split = hub.load
+    else:
+        root = Path(root)
+        manifest_bytes = (root / "training-manifest.json").read_bytes()
+        manifest = json.loads(manifest_bytes)
+
+        def load_split(name, split):
+            return load_from_disk(str(root / name / split))
     if exclude_datasets is None:
         exclude_datasets = []
     if not isinstance(exclude_datasets, list) or any(
@@ -194,7 +253,7 @@ def load_release(
     for name, splits in sorted(selected.items()):
         datasets, records = [], {}
         for split in sorted(splits):
-            dataset = load_from_disk(str(root / name / split))
+            dataset = load_split(name, split)
             if not isinstance(dataset, Dataset):
                 raise ValueError("Manifest must reference an explicit Dataset split")
             datasets.append(dataset)
@@ -233,10 +292,11 @@ def load_release(
         sample_cases=sample_cases,
         sampling=sampling,
         seed=seed,
-        manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
         exclude_datasets=sorted(exclude_datasets),
         excluded_splits=excluded,
         datasets=audit,
+        **source_audit,
     )
 
 
@@ -252,11 +312,20 @@ def macro_metrics(results):
     macro = {}
     for task in tasks:
         values = [v[task] for v in results.values() if task in v]
-        macro[task] = dict(
-            datasets=len(values),
-            groups=sum(v["groups"] for v in values),
-            **{k: sum(v[k] for v in values) / len(values) for k in values[0] if k != "groups"},
-        )
+        keys = sorted({k for v in values for k in v} - {"groups", "metric_counts"})
+        summary = dict(datasets=len(values), groups=sum(v["groups"] for v in values))
+        counts, datasets = {}, {}
+        for key in keys:
+            eligible = [
+                v for v in values
+                if v.get(key) is not None and v.get("metric_counts", {}).get(key, v["groups"]) > 0
+            ]
+            summary[key] = sum(v[key] for v in eligible) / len(eligible) if eligible else None
+            counts[key] = sum(v.get("metric_counts", {}).get(key, v["groups"]) for v in eligible)
+            datasets[key] = len(eligible)
+        summary["metric_counts"] = counts
+        summary["metric_datasets"] = datasets
+        macro[task] = summary
     return dict(
         tasks=macro,
         mean_cross_entropy=(

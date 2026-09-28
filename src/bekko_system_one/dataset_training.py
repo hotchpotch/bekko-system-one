@@ -21,9 +21,11 @@ def training_view(row: dict[str, Any]) -> dict[str, Any]:
     Converted rows can use the reversible legacy bridge. Native structured rows do not need
     legacy auxiliary data: this projection reads only inference input and targets.
     """
-    if row.get("schema_version") != VERSION:
+    if "schema_version" in row and row["schema_version"] != VERSION:
         raise ValueError(f"expected schema_version={VERSION}")
-    if row.get("legacy_aux_json"):
+    # Native producers may serialize absent bridge metadata as an empty JSON object.
+    # The string "{}" is truthy, but it contains no reversible legacy representation.
+    if row.get("legacy_aux_json") and json.loads(row["legacy_aux_json"]):
         return to_legacy(row)
     validate_row(row)
     targets = {target["decision_id"]: target for target in row["targets"]}

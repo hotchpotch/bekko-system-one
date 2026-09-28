@@ -8,11 +8,13 @@ from .inference import inference_runtime
 from .modules import DecisionHeads, SharedPrefix
 
 
-def build_model(model_name_or_path, *, tasks=("reranker",), device="cuda", **kwargs):
+def build_model(
+    model_name_or_path, *, tasks=("reranker",), device="cuda", choice_interaction=None, **kwargs
+):
     kwargs.setdefault("lora", dict(rank=16, alpha=32, dropout=0.0))
     encoder = SharedPrefix(model_name_or_path, **kwargs)
     return SentenceTransformer(
-        modules=[encoder, DecisionHeads(encoder.hidden_size, tasks)],
+        modules=[encoder, DecisionHeads(encoder.hidden_size, tasks, choice_interaction=choice_interaction)],
         device=device,
     )
 
@@ -69,6 +71,17 @@ def predict(model, groups, *, inference="optimized", token_budget=16000):
         model.train(was_training)
 
 
+def predict_typed(model, groups, *, inference="optimized", token_budget=16000):
+    """Return Choice IDs, Noul yes probabilities or Score expectations plus distributions."""
+    from .decisions import interpret_prediction, validate_typed_group
+
+    groups = list(groups)
+    for group in groups:
+        validate_typed_group(group)
+    probabilities = predict(model, groups, inference=inference, token_budget=token_budget)
+    return [interpret_prediction(g, p) for g, p in zip(groups, probabilities, strict=True)]
+
+
 @torch.inference_mode()
 def rank(model, query, documents, *, chunk_size=32, inference="optimized", task="reranker"):
     """Score documents with one prefix computation across all candidate chunks.
@@ -97,7 +110,8 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized", task=
             qids, dids = encoder.tokenize_branches([query], documents, [task] * len(documents))
             first = to_device(encoder.collate_tokens(qids, dids[:1], [0]), model.device)
             cache = encoder.encoder.encode_prefix(first["prefix_ids"], first["prefix_mask"])
-            scores = []
+            scores, representations = [], []
+            contextual = task == "choice" and active[1].choice_interaction is not None
             for start in range(0, len(dids), chunk_size):
                 chunk = dids[start : start + chunk_size]
                 f = to_device(encoder.collate_tokens(qids, chunk, [0] * len(chunk)), model.device)
@@ -111,6 +125,17 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized", task=
                 features = dict(
                     sentence_embedding=encoder.pool(hidden, f["doc_mask"]),
                     head_indices={task: None},
+                )
+                if contextual:
+                    representations.append(features["sentence_embedding"])
+                else:
+                    scores.append(active[1](features)["scores"].flatten())
+            if contextual:
+                features = dict(
+                    sentence_embedding=torch.cat(representations),
+                    head_indices={task: None},
+                    choice_indices=torch.arange(len(dids), device=model.device)[None, :],
+                    choice_mask=torch.ones((1, len(dids)), device=model.device, dtype=torch.bool),
                 )
                 scores.append(active[1](features)["scores"].flatten())
             return torch.cat(scores).float().cpu()
@@ -163,6 +188,12 @@ class InferenceEngine:
     def predict(self, groups):
         """Return probabilities in input order, using the selected inference mode."""
         return predict(self.model, groups, inference=self.inference, token_budget=self.token_budget)
+
+    def predict_typed(self, groups):
+        """Interpret predictions using explicit candidate IDs and numeric scales."""
+        return predict_typed(
+            self.model, groups, inference=self.inference, token_budget=self.token_budget
+        )
 
     def rank(self, query, documents, *, chunk_size=32, task="reranker"):
         """Return raw reranker scores, reusing the prefix across candidate chunks."""

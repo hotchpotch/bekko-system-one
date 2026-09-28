@@ -1,0 +1,73 @@
+{
+  "state_json": "{\"message\": \"I was charged twice for the same order. Please refund the duplicate payment.\"}",
+  "decisions": [
+    {
+      "id": "department",
+      "kind": "judgment",
+      "type": "choice",
+      "instructions_json": "\"Which department should handle this request?\"",
+      "system_prompt": "",
+      "criteria": [
+        {
+          "id": "billing",
+          "description_json": "\"Payments, charges and refunds\"",
+          "value": null
+        },
+        {
+          "id": "technical",
+          "description_json": "\"Technical failures and configuration\"",
+          "value": null
+        }
+      ],
+      "documents": [],
+      "scoring": null
+    },
+    {
+      "id": "refund",
+      "kind": "judgment",
+      "type": "noul",
+      "instructions_json": "\"Is the customer requesting a refund?\"",
+      "system_prompt": "",
+      "criteria": [
+        {
+          "id": "false",
+          "description_json": "\"No refund is requested.\"",
+          "value": null
+        },
+        {
+          "id": "true",
+          "description_json": "\"The customer explicitly requests money back.\"",
+          "value": null
+        }
+      ],
+      "documents": [],
+      "scoring": null
+    },
+    {
+      "id": "urgency",
+      "kind": "judgment",
+      "type": "score",
+      "instructions_json": "\"How urgently does this request need attention?\"",
+      "system_prompt": "",
+      "criteria": [
+        {
+          "id": "low",
+          "description_json": "\"Routine request with no immediate impact.\"",
+          "value": 0
+        },
+        {
+          "id": "medium",
+          "description_json": "\"A concrete issue needs timely attention.\"",
+          "value": 2
+        },
+        {
+          "id": "high",
+          "description_json": "\"Immediate action is required to prevent serious harm.\"",
+          "value": 4
+        }
+      ],
+      "documents": [],
+      "scoring": null
+    }
+  ]
+}

@@ -100,6 +100,7 @@ class SharedPrefixInference:
             if self._head_indices is not None
             else None
         )
+        keys = (*keys, *(k for k in ("choice_indices", "choice_mask") if k in example_features))
         self._reference = {k: example_features[k].detach().cpu().clone() for k in keys}
         self._static = {k: v.to(self.device).clone() for k, v in self._reference.items()}
         self._layout = TokenLayout.from_mask(self._static["prefix_mask"])
@@ -144,6 +145,9 @@ class SharedPrefixInference:
         result = {"sentence_embedding": (hidden * mask.unsqueeze(-1)).sum(1) / mask.sum(1)[:, None]}
         if self._head_indices is not None:
             result["head_indices"] = self._device_head_indices
+        for key in ("choice_indices", "choice_mask"):
+            if key in f:
+                result[key] = f[key]
         for index in range(1, len(self._model)):
             result = self._model[index](result)
         return result["scores"]
@@ -151,11 +155,14 @@ class SharedPrefixInference:
     def _validate(self, features):
         if features.get("head_indices") != self._head_indices:
             raise ValueError("Task routing changed; prepare another session")
+        for key in ("choice_indices", "choice_mask"):
+            if (key in features) != (key in self._reference):
+                raise ValueError("Choice grouping changed; prepare another session")
         for key, expected in self._reference.items():
             value = features[key]
             if value.shape != expected.shape or value.dtype != expected.dtype:
                 raise ValueError(f"Input layout changed: {key}; prepare another session")
-            fixed = key in {"prefix_mask", "doc_mask", "owners"}
+            fixed = key in {"prefix_mask", "doc_mask", "owners", "choice_indices", "choice_mask"}
             if fixed and not torch.equal(value.detach().cpu(), expected):
                 raise ValueError(f"Input layout changed: {key}; prepare another session")
         if self.cache_prefix and not torch.equal(
@@ -232,6 +239,10 @@ class _Runtime:
                 for k in ("prefix_mask", "doc_mask", "owners")
             ),
             repr(features.get("head_indices")),
+            tuple(
+                (k, tuple(features[k].shape), tuple(features[k].flatten().tolist()))
+                for k in ("choice_indices", "choice_mask") if k in features
+            ),
             torch.cuda.current_stream(self.model.device).cuda_stream,
         )
         with self.lock:

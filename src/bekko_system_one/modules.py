@@ -333,11 +333,11 @@ class SharedPrefix(InputModule):
 
 
 class DecisionHeads(Module):
-    """Independent FP32 scalar heads over candidate representations."""
+    """FP32 scalar heads with optional decision-local Choice interaction."""
 
     config_file_name = "heads.json"
 
-    def __init__(self, hidden_size, tasks=("reranker",)):
+    def __init__(self, hidden_size, tasks=("reranker",), choice_interaction=None):
         super().__init__()
         if (
             not tasks
@@ -347,6 +347,27 @@ class DecisionHeads(Module):
             raise ValueError("Expected distinct supported tasks")
         self.hidden_size, self.tasks = hidden_size, list(tasks)
         self.heads = nn.ModuleDict({t: nn.Linear(hidden_size, 1) for t in tasks})
+        self.choice_interaction_config = None
+        self.choice_interaction = None
+        if choice_interaction is not None:
+            self.enable_choice_interaction(choice_interaction)
+
+    def enable_choice_interaction(self, config):
+        """Attach a zero-output residual branch without changing existing heads."""
+        from .choice import ChoiceInteraction
+
+        if self.choice_interaction is not None:
+            raise ValueError("Choice interaction is already configured")
+        if "choice" not in self.tasks:
+            raise ValueError("Choice interaction requires a choice head")
+        if not isinstance(config, dict) or set(config) - {"width", "heads"}:
+            raise ValueError("choice_interaction accepts only width and heads")
+        settings = {"width": 128, "heads": 4, **config}
+        # Preserve unrelated initialization and training RNG streams.
+        with torch.random.fork_rng(devices=[]):
+            branch = ChoiceInteraction(self.hidden_size, **settings)
+        self.choice_interaction = branch.to(device=next(self.heads["choice"].parameters()).device)
+        self.choice_interaction_config = settings
 
     def forward(self, features, **kwargs):
         hidden = features["sentence_embedding"]
@@ -365,6 +386,12 @@ class DecisionHeads(Module):
                     index = torch.as_tensor(index, device=hidden.device, dtype=torch.long)
                     value = self.heads[task](hidden.index_select(0, index).float())
                     scores = scores.index_copy(0, index, value)
+            if self.choice_interaction is not None and "choice" in indices:
+                if "choice_indices" not in features or "choice_mask" not in features:
+                    raise ValueError("Choice interaction requires complete groups; use prepare_batch")
+                scores = scores + self.choice_interaction(
+                    hidden.float(), features["choice_indices"], features["choice_mask"]
+                )
         features["scores"] = scores
         features["sentence_embedding"] = scores
         return features
@@ -373,7 +400,10 @@ class DecisionHeads(Module):
         return 1
 
     def get_config_dict(self):
-        return dict(hidden_size=self.hidden_size, tasks=self.tasks)
+        return dict(
+            hidden_size=self.hidden_size, tasks=self.tasks,
+            choice_interaction=self.choice_interaction_config,
+        )
 
     def save(self, output_path, *args, **kwargs):
         Path(output_path).mkdir(parents=True, exist_ok=True)

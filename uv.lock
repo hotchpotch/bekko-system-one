@@ -113,6 +113,8 @@ name = "bekko-system-one"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "datasets" },
+    { name = "huggingface-hub" },
     { name = "peft" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
@@ -139,7 +141,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "datasets", specifier = ">=5.0" },
     { name = "flash-attn", marker = "extra == 'fa2'", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu13torch2.10cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" },
+    { name = "huggingface-hub", specifier = ">=1.0" },
     { name = "peft", specifier = ">=0.18" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "pyyaml", specifier = ">=6" },

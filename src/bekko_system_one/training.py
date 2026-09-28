@@ -22,8 +22,10 @@ from transformers import get_cosine_schedule_with_warmup, set_seed
 from .batching import TokenBudget, adaptive_backward
 from .data import collate_groups, prepare_groups, to_device
 from .loss import distribution_loss_sum
+from .metrics import DecisionMetrics
 from .model import build_model
 from .release import load_release, macro_metrics, source_groups, validate_prefix_layout
+from .usage import TrainingUsage, batch_usage
 
 
 def load_sources(specs):
@@ -46,7 +48,16 @@ def load_sources(specs):
 
 
 def source_batches(
-    counts, specs, *, mode, batch_size, seed, epoch_fraction=1.0, alpha=0.5, dataset_samples=None
+    counts,
+    specs,
+    *,
+    mode,
+    batch_size,
+    seed,
+    epoch_fraction=1.0,
+    alpha=0.5,
+    dataset_samples=None,
+    dataset_cap=None,
 ):
     """Yield source-homogeneous logical batches with reproducible row indices."""
     if batch_size < 1 or not math.isfinite(epoch_fraction) or epoch_fraction <= 0:
@@ -58,7 +69,10 @@ def source_batches(
         from .sampling import uniform_counts
 
         bases, selected = uniform_counts(
-            counts, {} if dataset_samples is None else dataset_samples, epoch_fraction
+            counts,
+            {} if dataset_samples is None else dataset_samples,
+            epoch_fraction,
+            dataset_cap=dataset_cap,
         )
         schedule = [n for n in sorted(counts) for _ in range(math.ceil(selected[n] / batch_size))]
         rng.shuffle(schedule)
@@ -95,16 +109,27 @@ def source_batches(
     elif mode == "weighted":
         # Source selection and row shuffling use independent RNG streams.
         # Drop a pool's tail instead of repeating rows within a logical batch.
-        names = sorted(n for n in counts if counts[n] >= batch_size)
+        from .sampling import uniform_counts
+
+        bases, _ = uniform_counts(counts, dataset_samples or {}, 1.0, dataset_cap=dataset_cap)
+        names = sorted(n for n in bases if bases[n] >= batch_size)
         if not names:
             raise ValueError("No source can produce a complete logical batch")
         array_rng = np.random.default_rng(seed)
-        weights = [counts[n] ** alpha for n in names]
-        pools, offsets = {}, {}
-        for _ in range(int(sum(counts.values()) * epoch_fraction) // batch_size):
+        weights = [bases[n] ** alpha for n in names]
+        pools, offsets, capped_rows = {}, {}, {}
+        for _ in range(int(sum(bases.values()) * epoch_fraction) // batch_size):
             name = rng.choices(names, weights)[0]
             if name not in pools or offsets[name] + batch_size > len(pools[name]):
-                pools[name] = array_rng.permutation(counts[name])
+                if name not in capped_rows:
+                    cap_rng = random.Random(f"{seed}:{name}:weighted-cap-v1")
+                    capped_rows[name] = np.asarray(
+                        cap_rng.sample(range(counts[name]), bases[name])
+                        if bases[name] < counts[name]
+                        else range(counts[name]),
+                        dtype=np.int64,
+                    )
+                pools[name] = array_rng.permutation(capped_rows[name])
                 offsets[name] = 0
             start = offsets[name]
             offsets[name] += batch_size
@@ -163,6 +188,7 @@ def train_step(model, groups, optimizer, controller):
     stats["grad_norm"] = norm.item()
     if device.type == "cuda":
         stats["peak_gpu_gib"] = torch.cuda.max_memory_allocated(device) / 2**30
+    stats["usage_by_task"] = batch_usage(prepared)
     return stats
 
 
@@ -206,34 +232,27 @@ def evaluate(model, sources, batch_size, token_budget):
                         model(features)["scores"].flatten().split([len(g.documents) for g in batch])
                     )
                     for group, scores in zip(batch, logits, strict=True):
-                        target = scores.new_tensor(group.target)
-                        if not torch.isfinite(scores).all():
-                            raise FloatingPointError("Nonfinite evaluation scores")
-                        item = totals.setdefault(
-                            group.task,
-                            dict(
-                                groups=0,
-                                cross_entropy=0.0,
-                                accuracy=0.0,
-                                brier=0.0,
-                                target_mass_at_prediction=0.0,
-                            ),
-                        )
-                        item["groups"] += 1
-                        item["cross_entropy"] += -(target * scores.log_softmax(0)).sum().item()
-                        item["accuracy"] += float(target[scores.argmax()] == target.max())
-                        item["brier"] += (scores.softmax(0) - target).square().sum().item()
-                        item["target_mass_at_prediction"] += target[scores.argmax()].item()
-            results[name] = {
-                task: {k: v if k == "groups" else v / m["groups"] for k, v in m.items()}
-                for task, m in totals.items()
-            }
+                        totals.setdefault(group.task, DecisionMetrics()).update(group, scores)
+            results[name] = {task: metrics.result() for task, metrics in totals.items()}
     finally:
         model.train(was_training)
     return results
 
 
 def run(config, max_steps=None):
+    from .tracking import RunTracker
+
+    tracker = RunTracker(config.get("wandb"))
+    try:
+        result = _run(config, max_steps, tracker)
+    except BaseException:
+        tracker.finish(exit_code=1)
+        raise
+    tracker.finish(exit_code=0)
+    return result
+
+
+def _run(config, max_steps, tracker):
     set_seed(config.get("seed", 42))
     train, data = config["training"], config["data"]
     device = train.get("device", "cuda")
@@ -281,15 +300,30 @@ def run(config, max_steps=None):
     if eval_budget < 1:
         raise ValueError("evaluation.token_budget must be positive")
     audits = {}
+    from .hub_release import pin_hub_reference, pin_model_reference
+
+    resolved_config = copy.deepcopy(config)
+    resolved_config["model"] = pin_model_reference(config["model"])
+    hub_pins = {}
+    release_root = pin_hub_reference(data["root"], hub_pins) if "root" in data else None
+    test_root = (
+        pin_hub_reference(evaluation["test_root"], hub_pins)
+        if evaluation.get("test_root")
+        else None
+    )
+    if release_root is not None:
+        resolved_config["data"]["root"] = release_root
+    if test_root is not None:
+        resolved_config["evaluation"]["test_root"] = test_root
     if "root" in data:
         sources, audits["train"] = load_release(
-            data["root"],
+            release_root,
             "train",
             exclude_datasets=data.get("exclude_datasets"),
             prefix_layout=prefix_layout,
         )
         validation, audits["validation"] = load_release(
-            data["root"],
+            release_root,
             "validation",
             sample_cases=evaluation.get("validation_samples", 5),
             sampling=evaluation.get("validation_sampling", "uniform"),
@@ -307,7 +341,7 @@ def run(config, max_steps=None):
     test = {}
     if evaluation.get("test_root"):
         test, audits["test"] = load_release(
-            evaluation["test_root"],
+            test_root,
             "test",
             exclude_datasets=evaluation.get("test_exclude_datasets"),
             prefix_layout=prefix_layout,
@@ -335,7 +369,9 @@ def run(config, max_steps=None):
 
         if "sampling_alpha" in data:
             raise ValueError("uniform sampling does not use sampling_alpha; remove it")
-        bases, selected = uniform_counts(counts, data.get("dataset_samples", {}), fraction)
+        bases, selected = uniform_counts(
+            counts, data.get("dataset_samples", {}), fraction, dataset_cap=data.get("dataset_cap")
+        )
         sample_plan = dict(
             mode=mode,
             seed=config.get("seed", 42),
@@ -345,8 +381,25 @@ def run(config, max_steps=None):
             selected_counts=selected,
             epoch_fraction=fraction,
         )
-    elif "dataset_samples" in data:
-        raise ValueError("dataset_samples requires sampling: uniform")
+    elif mode == "weighted":
+        from .sampling import uniform_counts
+
+        bases, _ = uniform_counts(
+            counts, data.get("dataset_samples", {}), 1.0, dataset_cap=data.get("dataset_cap")
+        )
+        sample_plan = dict(
+            mode=mode,
+            seed=config.get("seed", 42),
+            unit="decision",
+            source_counts=counts,
+            base_counts=bases,
+            epoch_fraction=fraction,
+            sampling_alpha=alpha,
+            sampling_weights={n: c**alpha for n, c in bases.items() if c >= batch_size},
+            excluded_small_sources=[n for n, c in bases.items() if c < batch_size],
+        )
+    elif "dataset_samples" in data or "dataset_cap" in data:
+        raise ValueError("dataset_samples and dataset_cap require sampling: uniform or weighted")
     steps = (
         sum(
             math.ceil(n / batch_size) * data.get("sources", {}).get(name, {}).get("passes", 1)
@@ -355,14 +408,20 @@ def run(config, max_steps=None):
         if mode == "source_passes"
         else int(sum(counts.values()) * fraction) // batch_size
     )
-    if sample_plan is not None:
+    if mode == "uniform":
         steps = sum(math.ceil(n / batch_size) for n in selected.values())
+    elif mode == "weighted":
+        steps = int(sum(bases.values()) * fraction) // batch_size
+        assert sample_plan is not None
+        sample_plan["steps"] = steps
+        sample_plan["sampled_decisions"] = steps * batch_size
     steps = min(steps, max_steps) if max_steps is not None else steps
     if steps < 1:
         raise ValueError("Training budget does not contain a complete batch")
     out = Path(train["output_dir"])
     out.mkdir(parents=True, exist_ok=False)
     if sample_plan is not None:
+        sample_plan["dataset_cap"] = data.get("dataset_cap")
         (out / "sampling_plan.json").write_text(json.dumps(sample_plan, indent=2))
     (out / "training_config.json").write_text(json.dumps(config, indent=2))
     if layout_sampler is not None:
@@ -374,8 +433,11 @@ def run(config, max_steps=None):
                 audits[role].pop("prefix_layout", None)
                 audits[role]["prefix_layouts"] = evaluation_layouts
     (out / "data_manifest.json").write_text(json.dumps(audits, indent=2))
-    model_config = dict(config["model"])
+    (out / "resolved_config.json").write_text(json.dumps(resolved_config, indent=2))
+    tracker.start(out, resolved_config, sample_plan, steps)
+    model_config = dict(resolved_config["model"])
     checkpoint = model_config.pop("checkpoint", None)
+    choice_interaction = model_config.pop("choice_interaction", None)
     if checkpoint is not None:
         allowed = {
             "query_length",
@@ -404,6 +466,17 @@ def run(config, max_steps=None):
     else:
         model = build_model(**model_config, device=device)
 
+    if choice_interaction is not None:
+        from .modules import DecisionHeads
+
+        heads = model[1]
+        if not isinstance(heads, DecisionHeads):
+            raise ValueError("Choice interaction requires DecisionHeads")
+        heads.enable_choice_interaction(choice_interaction)
+
+    tracker.parameters(model)
+    evaluation_step = 0
+
     def save_evaluation(label, selected):
         layouts = evaluation_layouts if evaluation_layouts is not None else (None,)
         for layout in layouts:
@@ -416,7 +489,9 @@ def run(config, max_steps=None):
                 suffix = f"{label}-{layout}"
             result = evaluate(model, rendered, batch_size, eval_budget)
             (out / f"{suffix}.json").write_text(json.dumps(result, indent=2))
-            (out / f"{suffix}-summary.json").write_text(json.dumps(macro_metrics(result), indent=2))
+            summary = macro_metrics(result)
+            (out / f"{suffix}-summary.json").write_text(json.dumps(summary, indent=2))
+            tracker.evaluation(label, layout or prefix_layout, evaluation_step, result, summary)
 
     if evaluation.get("before_training", False):
         if validation:
@@ -445,6 +520,7 @@ def run(config, max_steps=None):
     controller = TokenBudget(initial, maximum=maximum, target_bytes=target_bytes)
     started = time.monotonic()
     trained_decisions = 0
+    usage = TrainingUsage()
     with (out / "history.jsonl").open("w") as history:
         for step, (name, rows) in enumerate(
             source_batches(
@@ -456,6 +532,7 @@ def run(config, max_steps=None):
                 epoch_fraction=fraction,
                 alpha=data.get("sampling_alpha", 0.5),
                 dataset_samples=data.get("dataset_samples"),
+                dataset_cap=data.get("dataset_cap"),
             ),
             1,
         ):
@@ -473,6 +550,7 @@ def run(config, max_steps=None):
                 groups = source_groups(sources[name], rows)
             trained_decisions += len(groups)
             stats = train_step(model, groups, optimizer, controller)
+            usage.update(name, groups, stats["usage_by_task"])
             scheduler.step()
             entry = dict(
                 step=step,
@@ -485,6 +563,8 @@ def run(config, max_steps=None):
                 **stats,
                 **layout_stats,
             )
+            evaluation_step = step
+            tracker.training(entry, trained_decisions, final=step == steps)
             history.write(json.dumps(entry) + "\n")
             history.flush()
             print(json.dumps(entry), flush=True)
@@ -493,6 +573,7 @@ def run(config, max_steps=None):
             if step >= steps:
                 break
     training_seconds = time.monotonic() - started
+    (out / "training_usage.json").write_text(json.dumps(usage.result(), indent=2))
     optimizer.zero_grad(set_to_none=True)
     model.save_pretrained(str(out / "model"), create_model_card=False)
     if "root" in data:
@@ -524,7 +605,7 @@ def run(config, max_steps=None):
         steps=steps,
         trained_decisions=trained_decisions,
         source_decisions=counts,
-        excluded_small_sources=[n for n, c in counts.items() if c < batch_size]
+        excluded_small_sources=[n for n, c in bases.items() if c < batch_size]
         if mode == "weighted"
         else [],
         training_seconds=training_seconds,
@@ -534,6 +615,7 @@ def run(config, max_steps=None):
     if layout_sampler is not None:
         result["prefix_layout_counts"] = dict(layout_sampler.counts)
     (out / "result.json").write_text(json.dumps(result, indent=2))
+    tracker.result(result, usage.result())
     return result
 
 

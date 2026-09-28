@@ -92,7 +92,7 @@ def _validate_distribution(ids: list[str], probabilities: list[float]) -> None:
 
 def validate_row(row: dict[str, Any]) -> None:
     """Validate structured structure, decision/target alignment, and target normalization."""
-    if row.get("schema_version") != VERSION:
+    if "schema_version" in row and row["schema_version"] != VERSION:
         raise ValueError(f"expected schema_version={VERSION}")
     inp = row["input"]
     decisions = inp["decisions"]

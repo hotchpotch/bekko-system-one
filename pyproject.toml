@@ -16,6 +16,8 @@ dependencies = [
     "triton==3.6.0",
     "transformers==5.17.0",
     "wandb>=0.24",
+    "datasets>=5.0",
+    "huggingface-hub>=1.0",
 ]
 
 [project.optional-dependencies]

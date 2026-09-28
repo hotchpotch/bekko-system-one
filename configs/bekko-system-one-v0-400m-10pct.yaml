@@ -1,0 +1,64 @@
+# Latest Hub main is resolved to a commit at run start and recorded in resolved_config.json.
+seed: 42
+model:
+  model_name_or_path: cross-encoder/ettin-reranker-400m-v1
+  tasks:
+  - choice
+  - noul
+  - score
+  lora: null
+  query_length: 4096
+  document_length: 2048
+  query_truncation: balanced
+  attention_backend: flash_attention_2
+  gradient_checkpointing: true
+  frozen_linear_bf16: false
+  fused_rotary: true
+data:
+  root:
+    repo_id: hotchpotch/bekko-system-one-dataset-v0
+    token: true
+  dataset_cap: 300000
+  sampling: weighted
+  epoch_fraction: 0.1
+  prefix_layout_weights:
+    instruction_state: 1
+    state_instruction: 1
+  sampling_alpha: 0.5
+evaluation:
+  test_root:
+    repo_id: hotchpotch/s1mb-dataset
+    token: true
+  validation_samples: 50
+  validation_sampling: balanced
+  validation_seed: 42
+  prefix_layouts:
+  - instruction_state
+  - state_instruction
+  before_training: true
+  token_budget: 4096
+training:
+  output_dir: output/bekko-system-one-v0-400m-10pct
+  device: cuda
+  batch_size: 512
+  learning_rate: 1.0e-05
+  head_learning_rate: 0.0002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler: cosine
+  eval_steps: 1000
+  initial_tokens: 8192
+  max_tokens: 65536
+  memory_fraction: 0.75
+wandb:
+  mode: online
+  project: bekko-system-one
+  group: bekko-system-one-v0
+  job_type: train
+  tags:
+  - v0
+  - 400m
+  - 10pct
+  - cap300k
+  - alpha05
+  log_every: 10

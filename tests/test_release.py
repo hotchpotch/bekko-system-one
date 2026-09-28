@@ -184,7 +184,7 @@ def test_checkpoint_release_training_and_full_test(
                 **(
                     dict(dataset_samples={"a": 5})
                     if sampling == "uniform"
-                    else dict(sampling_alpha=0.5)
+                    else dict(sampling_alpha=0.5, dataset_samples={"a": 5})
                 ),
                 exclude_datasets=["excluded"],
                 prefix_layout=prefix_layout,

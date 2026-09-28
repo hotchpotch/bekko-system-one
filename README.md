@@ -2,8 +2,9 @@
 
 Train shared-prefix rerankers and typed decision models with Sentence Transformers.
 Each query is encoded once per batch. Candidates attend to its per-layer keys and
-values while remaining independent of other candidates. One encoder and LoRA
-adapter serve independent scalar scoring heads.
+values while remaining independent of other candidates inside the encoder. One encoder
+and optional LoRA adapter serve scalar scoring heads. Choice can additionally use a
+small comparison head over the candidates of each decision.
 
 ## Install and train
 
@@ -30,6 +31,22 @@ The model is an ordinary `SentenceTransformer` containing `SharedPrefix` and
 using separate LoRA/head learning rates, FP32 loss, clipping, warmup/linear decay,
 and adaptive microbatch accumulation. It does not use the default text-pair
 collator of `SentenceTransformerTrainer`.
+
+## Bekko System One v0 release recipes
+
+[Train v0 from this repository](docs/training-v0.md) using the private Bekko and
+S1MB Hub datasets and public Ettin reranker initialization. Configurations for
+17M, 68M and 400M include full 300k-cap training, a weighted 10% budget
+(alpha=0.5), and a small smoke run. All use cosine scheduling and online W&B
+tracking. Latest Hub revisions are resolved and recorded when a run starts.
+
+```sh
+CUDA_VISIBLE_DEVICES=0 uv run --locked --extra fa2 bekko-system-one \
+  --config configs/bekko-system-one-v0-17m-smoke.yaml
+```
+
+Authenticate with Hugging Face and W&B first; see the recipe guide for setup,
+budget semantics, evaluation scope, larger models and output artifacts.
 
 ## Data
 
@@ -263,6 +280,51 @@ uses `input_format: reranking`, the Score head, and document-only candidate text
 Pointwise ratings keep their document in the state, so choose a query length that
 accommodates it. Input limits apply equally to initial and final evaluation.
 
+Structured rows may omit the constant `schema_version` column and empty
+`legacy_aux_json` / `provenance_json` columns. If a version is present, it must
+be `system_one.v1`. Input and target validation remains the same.
+
+### Loading a Hugging Face dataset
+
+For typed decision rows hosted on the Hub, `data.root` and `evaluation.test_root`
+also accept a mapping. These sources use the standard `datasets.load_dataset()`
+API and its download/cache mechanism; an intermediate `save_to_disk()` export
+is unnecessary.
+
+```yaml
+data:
+  root:
+    repo_id: organization/typed-decisions
+    revision: main             # A commit SHA is recommended for reproducibility.
+    configs: [subset_a, subset_b]  # Omit to include all configurations.
+    token: true                # Use credentials from `hf auth login` or HF_TOKEN.
+  sampling: uniform
+evaluation:
+  test_root:
+    repo_id: organization/typed-decisions
+    revision: main
+    configs: [subset_a, subset_b]
+    token: true
+  validation_samples: 5
+```
+
+Hub sources must contain the same typed rows as local releases. Configurations
+become dataset names for sampling and metrics. Split names select their roles:
+`train`/`train_*`, `validation`/`validation_*`, and `test`/`test_*`.
+Calibration, OOD and unlabeled splits are not used for those roles. Missing
+validation remains empty; it never falls back to test. No custom manifest is
+required on the Hub. `configs` restricts which configurations are considered;
+the existing exclusion and per-dataset sampling settings still apply.
+
+The trainer resolves each repository/revision to a commit before loading data
+and records the resolved revision, configurations, split sizes and fingerprints
+in `data_manifest.json`. Train and evaluation references to the same revision
+share the pinned commit. Authentication or download failures are surfaced
+without a local fallback. `token` accepts only a boolean, so credentials are
+never embedded in saved configuration files; omit it for the Hub client's
+default authentication behavior. Optional `cache_dir` selects a datasets cache.
+Local filesystem paths continue to use `load_from_disk()` and the local manifest.
+
 ### Sharing state across instructions
 
 Release training supports two input orders through `data.prefix_layout`:
@@ -373,8 +435,7 @@ sources default to 100%; zero skips a source. Unknown or excluded source names
 are rejected. Validation and test are unaffected.
 
 Remove `sampling_alpha` when using this mode; supplying it is an error.
-`dataset_samples` is only valid with `sampling: uniform` and `epoch_fraction`
-must be in `(0, 1]`. The selection is reproducible for a fixed seed and source
+For uniform sampling, `epoch_fraction` must be in `(0, 1]`. The selection is reproducible for a fixed seed and source
 ordering; smaller budgets select nested subsets when the seed and per-source
 limits are unchanged. Logical batches contain one source, their order is
 shuffled, and partial final batches are retained. Each selected decision is
@@ -494,8 +555,8 @@ bekko-system-one --config train.yaml --train-percent 1
 `data.epoch_fraction`, rather than multiplying its existing value. With uniform
 sampling, the fraction is applied to each dataset **after** its configured cap,
 rounded down to whole decisions. Small datasets can therefore contribute zero
-decisions to a smoke run. Weighted sampling uses the fraction as its usual total
-presentation budget. Percentage overrides are not supported for `source_passes`.
+decisions to a smoke run. Weighted sampling applies the fraction to the total capped-pool count
+to set its presentation budget. Percentage overrides are not supported for `source_passes`.
 
 The output directory automatically gets `-smoke` or `-1pct` appended to its
 basename. Use `--output-dir runs/another-trial` for a repeat; existing directories
@@ -541,3 +602,150 @@ separate target list, and `render_group` adapts a selected case at render time.
 Converted rows retain the established rendering, candidate order and text, and
 target alignment. Uniform and balanced sampling both select whole cases, even
 when a case has several decisions.
+
+To initialize full-parameter training from a learned LoRA checkpoint, load it
+with `frozen_linear_bf16=False` (and `attention_backend="sdpa"` on CPU), then
+use `bekko_system_one.checkpoint.merge_lora_for_full_training(model)`. This
+returns a separate FP32 model with adapter weights merged into the backbone,
+all parameters trainable, and non-LoRA checkpoint settings. Save it with
+`save_pretrained`. Floating-point rounding can introduce small score differences;
+check representative predictions before starting a controlled comparison.
+
+### Capped alpha sampling
+
+With `sampling: weighted`, `dataset_samples` limits each source's fixed eligible
+pool before applying alpha. Source weights are `base_count ** sampling_alpha`;
+the total update budget is `floor(sum(base_counts) * epoch_fraction / batch_size)`.
+Rows are shuffled within the fixed pool and may repeat after it is exhausted;
+there are no duplicates within a batch. Pools smaller than one logical batch
+are excluded from source selection (their counts still contribute to the budget).
+Caps accept the same integer or percentage syntax as uniform sampling. A zero
+cap removes a source from both the budget and selection. Validation/test are
+unchanged. `sampling_plan.json` records caps, weights, exclusions and budget.
+
+Native Noul criteria are also included in the query's state as
+`{"noul":{"yes":"<true criterion>","no":"<false criterion>"},"state":<original state>}`.
+This gives each candidate access to both meanings, including a task-specific negative
+meaning such as “not supported” rather than “contradicted”. Definitions precede the
+original state so right truncation retains them first. The original state is nested
+without overwriting any keys. Candidate IDs, descriptions, order and soft targets
+remain unchanged. Each decision uses its own criteria. Noul requires an explicit
+`true`/`false` or `yes`/`no` pair; missing criteria are not synthesized.
+
+Use the same rendering for label-free native inference:
+
+```python
+from bekko_system_one import predict, render_input_group
+
+groups = [
+    render_input_group(case_input, i, prefix_layout="instruction_state")
+    for i in range(len(case_input["decisions"]))
+]
+probabilities = predict(model, groups)
+```
+
+`case_input` is the structured row's `input` object (`state_json` and `decisions`).
+No targets or provenance are passed to inference. Choice and Score criteria remain
+candidate branches; ranking documents remain document branches.
+
+## Typed predictions and numerical evaluation
+
+`predict()` continues to return probability tensors. `predict_typed()` interprets
+judgment groups using explicit candidate metadata and returns dataclasses:
+
+- `ChoicePrediction`: `selected_id`, `probabilities` keyed by candidate ID.
+- `NoulPrediction`: `probability_yes`, `probabilities`. The positive candidate is
+  identified by `true` or `yes`, regardless of its position.
+- `ScorePrediction`: `score = sum(probability * value)`, `normalized_score`,
+  `probabilities` and `values` keyed by ID. Normalization is
+  `(score - min(values)) / (max(values) - min(values))`.
+
+```python
+from bekko_system_one import predict_typed, render_input_group
+
+# Native input contains state_json and decisions, without labels or provenance.
+groups = [render_input_group(case_input, i) for i in range(len(case_input["decisions"]))]
+answers = predict_typed(model, groups)
+# InferenceEngine(model).predict_typed(groups) exposes the same interface.
+```
+
+For Score values 0, 1, 2, 3, 4 and probabilities 0, 0, .12, .60, .28, the score is
+3.16 and its normalized value is .79. Explicit values, not presentation positions,
+determine the result. Different scales and shuffled candidate order are supported.
+Score and Noul are independent judgments; no equality constraint ties their outputs.
+Existing checkpoints work without retraining. Typed prediction requires the relevant
+metadata and rejects document-ranking groups; use `predict()` or `rank()` for those.
+
+`Group.metadata` is an optional `DecisionMetadata` containing `candidate_ids`,
+`candidate_values`, `kind` (`judgment` or `ranking`), and optional `case_id`, `group_id`,
+`decision_id`. The release renderer supplies these fields. JSONL groups may supply
+an equivalent `metadata` object. The metadata survives token preparation and packing
+but is never concatenated into model inputs. Existing groups without metadata remain
+valid for training, probability inference and distribution evaluation.
+
+Evaluation retains `cross_entropy`, `accuracy`, `brier` and
+`target_mass_at_prediction`, and adds:
+
+- `score_mae`: absolute difference of predicted and target expectations, in the
+  original units. Both use the same candidate values.
+- `score_normalized_mae`: that difference divided by the scale width, for comparisons
+  across different scales. Ranking and groups without numeric scales are excluded.
+- `binary_brier`: squared error of Noul's yes probability against its soft target.
+  The existing two-candidate distribution `brier` remains twice this value.
+- `kl_divergence`: KL(target || prediction), separating target entropy from CE.
+
+Each result includes `metric_counts`. A metric with no eligible decisions is `null`,
+not zero. Macro summaries average only eligible datasets for each metric and expose
+both `metric_counts` and `metric_datasets`; dataset size does not change macro weight.
+Raw-unit `score_mae` can combine different scales, so prefer `score_normalized_mae`
+for such summaries. Soft-target errors measure agreement with that teacher; they do
+not establish calibration against real-world frequencies.
+
+Training history includes `usage_by_task` per source and step. `training_usage.json`
+aggregates decisions, candidate counts, post-truncation query/candidate tokens and
+exact unique case counts by source and task; document ranking is counted separately.
+Case IDs are source-local. `identified_decisions` and `case_identity_complete` report
+coverage; unknown unique counts are `null`. Partial counts cover only known IDs.
+Unique case tracking uses memory proportional to the number of observed case IDs.
+Token counts count accepted decisions once, exclude padding and OOM retries, and are
+not hardware-operation counts. `attention_work_tokens` repeats the query length per
+candidate; `query_tokens` counts it once per decision, without shared-prefix deduplication.
+
+Training caps and `epoch_fraction` are in **decisions**, while validation sampling is
+in **cases** and retains every decision in each selected case. Adding another task
+can change source weights, update counts, and unique-case coverage. Use these logs
+to compare actual work before changing sampling ratios or loss weights.
+
+
+## Optional Choice interaction
+
+Set `model.choice_interaction: {width: 128, heads: 4}` to add one residual
+attention block over mean-pooled candidate vectors. This works with a newly built
+model or when continuing an independent checkpoint. The final correction starts
+at zero, preserving the original scores before training. Existing contextual
+checkpoints restore the block automatically; omit this option when resuming them.
+
+Only candidates in the same Choice decision interact. Sharing a prefix across
+multiple decisions does not merge their candidate sets. No candidate-position
+embeddings are added. Noul, Score, and reranker heads keep their independent
+scoring paths. Joint training can still change their shared encoder.
+
+Use complete `Group` objects with `predict`/`predict_typed` or `prepare_batch`.
+A bare pairwise `encode` call cannot supply a Choice candidate set and is rejected
+by contextual heads. `rank(..., task="choice")` collects candidate embeddings
+across chunks before applying the comparison head. Legacy, optimized, and fast
+CUDA Graph inference preserve the same decision boundaries.
+
+The prefix and candidate encodings remain independent of the candidate set;
+only the comparison head depends on it. The head adds quadratic attention in the
+number of candidates, rather than their combined token length. This is an
+experimental capacity increase, not a guarantee of better accuracy or calibration.
+
+The browser ONNX exporter currently rejects contextual Choice checkpoints; its
+portable graph supports independent heads only.
+
+## Standalone inference export
+
+Export a self-contained Sentence Transformers model with `trust_remote_code=True`,
+minimal runtime dependencies and optional `torch.compile`. See
+[standalone v0 inference](docs/inference-v0.md) for export, loading and CLI usage.

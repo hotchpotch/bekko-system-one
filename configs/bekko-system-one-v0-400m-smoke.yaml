@@ -1,0 +1,85 @@
+# Latest Hub main is resolved to a commit at run start and recorded in resolved_config.json.
+seed: 42
+model:
+  model_name_or_path: cross-encoder/ettin-reranker-400m-v1
+  tasks:
+  - choice
+  - noul
+  - score
+  lora: null
+  query_length: 4096
+  document_length: 2048
+  query_truncation: balanced
+  attention_backend: flash_attention_2
+  gradient_checkpointing: true
+  frozen_linear_bf16: false
+  fused_rotary: true
+data:
+  root:
+    repo_id: hotchpotch/bekko-system-one-dataset-v0
+    token: true
+    configs:
+    - laya__ag_news
+    - laya__typed_decisions
+    - civil_comments
+    - helpsteer
+    - open_jev__painting-geometry-v1
+    - open_jev__customer-control-v1
+    - synthetic_relevance__agnews
+    - bge-hn-hotpotqa
+  dataset_cap: 300000
+  sampling: uniform
+  epoch_fraction: 1.0
+  prefix_layout_weights:
+    instruction_state: 1
+    state_instruction: 1
+  dataset_samples:
+    laya__ag_news: 64
+    laya__typed_decisions: 64
+    civil_comments: 64
+    helpsteer: 64
+    open_jev__painting-geometry-v1: 64
+    open_jev__customer-control-v1: 64
+    synthetic_relevance__agnews: 64
+    bge-hn-hotpotqa: 64
+evaluation:
+  test_root:
+    repo_id: hotchpotch/s1mb-dataset
+    token: true
+    configs:
+    - laya__typed_decisions
+    - civil_comments
+    - open_jev__painting-geometry-v1
+    - s1mb-generalization-contextual-score
+  validation_samples: 2
+  validation_sampling: balanced
+  validation_seed: 42
+  prefix_layouts:
+  - instruction_state
+  - state_instruction
+  before_training: true
+  token_budget: 4096
+training:
+  output_dir: output/bekko-system-one-v0-400m-smoke
+  device: cuda
+  batch_size: 32
+  learning_rate: 1.0e-05
+  head_learning_rate: 0.0002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler: cosine
+  eval_steps: 8
+  initial_tokens: 4096
+  max_tokens: 8192
+  memory_fraction: 0.75
+wandb:
+  mode: online
+  project: bekko-system-one
+  group: bekko-system-one-v0
+  job_type: smoke
+  tags:
+  - v0
+  - 400m
+  - smoke
+  - cap300k
+  log_every: 1

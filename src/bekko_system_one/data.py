@@ -11,14 +11,66 @@ from .query_budget import QueryParts
 
 
 @dataclass(frozen=True)
+class DecisionMetadata:
+    """Non-tokenized candidate alignment and source identity; never model features."""
+
+    candidate_ids: tuple[str, ...] | None = None
+    candidate_values: tuple[float, ...] | None = None
+    kind: str | None = None
+    case_id: str | None = None
+    group_id: str | None = None
+    decision_id: str | None = None
+
+    def __post_init__(self):
+        if self.kind not in {None, "judgment", "ranking"}:
+            raise ValueError("metadata kind must be judgment or ranking")
+        if self.candidate_ids is not None:
+            ids = tuple(self.candidate_ids)
+            if not ids or any(not isinstance(i, str) or not i for i in ids):
+                raise ValueError("candidate_ids must be nonempty strings")
+            if len(set(ids)) != len(ids):
+                raise ValueError("candidate_ids must be unique")
+            object.__setattr__(self, "candidate_ids", ids)
+        if self.candidate_values is not None:
+            values = tuple(self.candidate_values)
+            if not values or any(not math.isfinite(v) for v in values):
+                raise ValueError("candidate_values must be finite")
+            if len(set(values)) != len(values):
+                raise ValueError("candidate_values must be unique")
+            object.__setattr__(self, "candidate_values", values)
+        for identity in (self.case_id, self.group_id, self.decision_id):
+            if identity is not None and not isinstance(identity, str):
+                raise ValueError("metadata identities must be strings")
+
+    @property
+    def yes_index(self):
+        ids = self.candidate_ids
+        if ids is not None and set(ids) in ({"true", "false"}, {"yes", "no"}):
+            return ids.index("true" if "true" in ids else "yes")
+        return None
+
+    @property
+    def score_values(self):
+        if self.kind == "judgment" and self.candidate_values is not None:
+            if len(self.candidate_values) >= 2:
+                return self.candidate_values
+        return None
+
+
+@dataclass(frozen=True)
 class Group:
     query: str
     candidates: list[str]
     task: str = "reranker"
     target: list[float] | None = None
     query_parts: QueryParts | None = None
+    metadata: DecisionMetadata | None = None
 
     def __post_init__(self):
+        if self.metadata is not None:
+            for values in (self.metadata.candidate_ids, self.metadata.candidate_values):
+                if values is not None and len(values) != len(self.candidates):
+                    raise ValueError("candidate metadata must align with candidates")
         if self.query_parts is not None and self.query_parts.render() != self.query:
             raise ValueError("query must match query_parts.render()")
         if self.task not in {"reranker", "choice", "noul", "score"}:
@@ -43,6 +95,7 @@ class Group:
             task=row.get("task", "reranker"),
             target=row.get("target"),
             query_parts=QueryParts(**row["query_parts"]) if row.get("query_parts") else None,
+            metadata=DecisionMetadata(**row["metadata"]) if row.get("metadata") else None,
         )
 
 
@@ -53,6 +106,7 @@ class PreparedGroup:
     query: list[int]
     documents: list[list[int]]
     target: list[float] | None
+    metadata: DecisionMetadata | None = None
 
     @property
     def cost(self):
@@ -76,6 +130,7 @@ def prepare_groups(groups, encoder):
             qmap[g.query, g.query_parts],
             [dmap[g.task, d] for d in g.candidates],
             g.target,
+            g.metadata,
         )
         for g in groups
     ]
@@ -94,6 +149,20 @@ def collate_groups(groups, encoder):
         owners.extend([seen[group.key]] * len(group.documents))
     features = encoder.collate_tokens(queries, docs, owners)
     features["head_indices"] = {next(iter(indices)): None} if len(indices) == 1 else indices
+    choice_rows, offset = [], 0
+    for group in groups:
+        count = len(group.documents)
+        if group.task == "choice":
+            choice_rows.append(list(range(offset, offset + count)))
+        offset += count
+    if choice_rows:
+        width = max(map(len, choice_rows))
+        features["choice_indices"] = torch.tensor(
+            [row + [0] * (width - len(row)) for row in choice_rows], dtype=torch.long
+        )
+        features["choice_mask"] = torch.tensor(
+            [[True] * len(row) + [False] * (width - len(row)) for row in choice_rows]
+        )
     return features
 
 

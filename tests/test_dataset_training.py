@@ -120,6 +120,16 @@ def test_native_rows_render_all_decision_kinds_without_metadata_leaks():
     assert groups[3].candidates == ['Document: {"text":"Document A"}', "Document: Document B"]
 
 
+@pytest.mark.parametrize("aux", [None, "", "{}", " { } "])
+def test_native_empty_legacy_aux_uses_structured_inputs(aux):
+    row = native_case()
+    expected = training_view(row)
+    row["legacy_aux_json"] = aux
+    assert training_view(row) == expected
+    source = DecisionSource(Dataset.from_list([row], features=dataset_features()))
+    assert len(source.groups(list(range(len(source))))) == 4
+
+
 def test_native_missing_target_is_rejected_by_training_renderer():
     row = native_case(include_target=False)
     with pytest.raises(ValueError, match="Decision/target alignment"):
@@ -134,3 +144,65 @@ def test_native_balanced_sampling_is_deterministic():
     second, report2 = select_balanced_cases(dataset, cap=4, seed=17, name="native")
     assert first == second
     assert report1 == report2
+
+
+@pytest.mark.parametrize("layout", ["instruction_state", "state_instruction"])
+@pytest.mark.parametrize("state", [{"noul": "original", "context": "evidence"}, [1, 2], "text", None])
+def test_noul_definitions_share_training_and_inference_state(layout, state):
+    from copy import deepcopy
+
+    from bekko_system_one import render_input_group
+
+    row = native_case()
+    row["input"]["state_json"] = json.dumps(state)
+    decision = row["input"]["decisions"][1]
+    decision["criteria"][0]["description_json"] = json.dumps("Not supported, not necessarily false")
+    decision["criteria"][1]["description_json"] = json.dumps("Supported by the evidence")
+    # Both candidate and target order are independent of yes/no mapping.
+    decision["criteria"].reverse()
+    before = deepcopy(row)
+    trained = render_group(row, 1, prefix_layout=layout)
+    inferred = render_input_group(row["input"], 1, prefix_layout=layout)
+    assert inferred.target is None
+    assert trained.target == [1.0, 0.0]
+    assert (trained.query, trained.candidates, trained.query_parts) == (
+        inferred.query, inferred.candidates, inferred.query_parts
+    )
+    assert json.loads(inferred.query_parts.context) == {
+        "noul": {"yes": "Supported by the evidence", "no": "Not supported, not necessarily false"},
+        "state": state,
+    }
+    assert row == before
+    # Each decision sees only its own definitions; other tasks retain their state.
+    for position in (0, 2, 3):
+        group = render_input_group(row["input"], position, prefix_layout=layout)
+        assert group.query_parts.context == row["input"]["state_json"]
+
+
+def test_noul_requires_explicit_binary_criteria_without_fallback():
+    from bekko_system_one import render_input_group
+
+    row = native_case()
+    criteria = row["input"]["decisions"][1]["criteria"]
+    criteria[0]["id"], criteria[1]["id"] = "no", "yes"
+    group = render_input_group(row["input"], 1)
+    assert json.loads(group.query_parts.context)["noul"] == {"yes": "Yes", "no": "No"}
+    criteria.pop()
+    with pytest.raises(ValueError, match="Noul requires explicit"):
+        render_input_group(row["input"], 1)
+
+
+def test_renew_multiple_noul_decisions_do_not_share_definitions():
+    from copy import deepcopy
+
+    from bekko_system_one import render_input_group
+
+    row = native_case()
+    second = deepcopy(row["input"]["decisions"][1])
+    second["id"] = "another"
+    second["criteria"][0]["description_json"] = json.dumps("Different negative meaning")
+    row["input"]["decisions"].append(second)
+    first = render_input_group(row["input"], 1)
+    other = render_input_group(row["input"], 4)
+    assert "Different negative meaning" not in first.query
+    assert "Different negative meaning" in other.query
