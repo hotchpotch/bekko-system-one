@@ -207,15 +207,20 @@ entailment, rules, news topics, entity types, and document relevance.
 `src/examples.json` contains only instructions, context, and criteria. Examples
 are editable starting points for trying each decision type.
 
-Use **Load model** to prepare the model before running a decision, or run an
+Use **Download model now** to prepare the model before running a decision, or run an
 example to load it automatically. File progress shows received bytes and download
 completion; initialization is shown separately. Unknown download sizes remain
-indeterminate. A loaded model is reused across decisions, and failed downloads
+indeterminate. The model selector shows 17M as available, with 68M and 400M marked as coming soon.
+A loaded model is reused across decisions, and failed downloads
 can be retried. **Reset example** restores the selected example's inputs.
+
+Choose a decision type on the left and search for an example on the right.
+Run it immediately using the button below the selectors, or edit the fields first.
+Selectors use React Select with keyboard navigation and grouped examples.
 
 Context is edited in ordinary text fields (for example Subject and Body,
 Premise and Hypothesis, or Query and Document). No JSON editing is required.
-Yes/No uses standard criteria, with optional custom meanings in a disclosure.
+Yes/No shows editable meanings for both answers directly in the form.
 Choice accepts one option per line, either a label or `id | description`.
 Score accepts one `number | description` per line, preserving explicit numeric
 values. Results show the selected answer, probabilities, or the expected score

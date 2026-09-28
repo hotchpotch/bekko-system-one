@@ -54,4 +54,4 @@ async (page) => {
   } finally {
     await context.unroute("**/model.onnx", route);
   }
-};
+}

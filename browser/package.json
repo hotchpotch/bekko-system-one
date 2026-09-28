@@ -18,7 +18,8 @@
     "onnxruntime-node": "1.30.0",
     "onnxruntime-web": "1.30.0",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "react-select": "^5.10.2"
   },
   "devDependencies": {
     "vite": "^7.3.0"

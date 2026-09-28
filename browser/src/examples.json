@@ -1,7 +1,7 @@
 [
   {
     "id": "email-promotion",
-    "title": "Promotional email",
+    "title": "Spot a promotional spam email",
     "category": "Email spam detection",
     "task": "noul",
     "instruction": "Is this email unsolicited spam or bulk marketing?",
@@ -22,7 +22,7 @@
   },
   {
     "id": "email-meeting-followup",
-    "title": "Personal meeting follow-up",
+    "title": "Recognize a personal work email",
     "category": "Email spam detection",
     "task": "noul",
     "instruction": "Is this email unsolicited spam or bulk marketing?",
@@ -43,7 +43,7 @@
   },
   {
     "id": "train-route-same",
-    "title": "Same meaning",
+    "title": "Same train route, different wording",
     "category": "Paraphrase verification",
     "task": "noul",
     "instruction": "Do the sentences express the same meaning, including who did what to whom?",
@@ -64,7 +64,7 @@
   },
   {
     "id": "train-route-reversed",
-    "title": "Different meaning",
+    "title": "Reversed train route, different meaning",
     "category": "Paraphrase verification",
     "task": "noul",
     "instruction": "Do the sentences express the same meaning, including who did what to whom?",
@@ -85,7 +85,7 @@
   },
   {
     "id": "nurses-shared-action",
-    "title": "Shared action",
+    "title": "Does the text say the nurses laughed?",
     "category": "Sentence entailment",
     "task": "noul",
     "instruction": "Does the premise entail the hypothesis?",
@@ -106,7 +106,7 @@
   },
   {
     "id": "drivers-different-action",
-    "title": "Who did what?",
+    "title": "Does the text say the drivers slept?",
     "category": "Sentence entailment",
     "task": "noul",
     "instruction": "Does the premise entail the hypothesis?",
@@ -127,7 +127,7 @@
   },
   {
     "id": "whale-lungs",
-    "title": "Whale facts",
+    "title": "Do whales breathe with lungs?",
     "category": "Evidence supports a statement",
     "task": "noul",
     "instruction": "Does the premise support the hypothesis?",
@@ -148,7 +148,7 @@
   },
   {
     "id": "whale-gills",
-    "title": "Check the evidence",
+    "title": "Do whales breathe through gills?",
     "category": "Evidence supports a statement",
     "task": "noul",
     "instruction": "Does the premise support the hypothesis?",
@@ -169,7 +169,7 @@
   },
   {
     "id": "squirrel-rule-supported",
-    "title": "Explicit rule reasoning · 1",
+    "title": "Follow a rule: is the squirrel rough?",
     "category": "Explicit rule reasoning",
     "task": "noul",
     "instruction": "Is the hypothesis true under the stated facts and rules? Under the closed-world assumption, an unprovable positive proposition is false and its negation is true.",
@@ -190,7 +190,7 @@
   },
   {
     "id": "squirrel-rule-contradicted",
-    "title": "Explicit rule reasoning · 2",
+    "title": "Check a conflicting claim about the squirrel",
     "category": "Explicit rule reasoning",
     "task": "noul",
     "instruction": "Is the hypothesis true under the stated facts and rules? Under the closed-world assumption, an unprovable positive proposition is false and its negation is true.",
@@ -211,7 +211,7 @@
   },
   {
     "id": "wooden-chair-category",
-    "title": "Category inference · 1",
+    "title": "Is a wooden chair still a chair?",
     "category": "Category inference",
     "task": "noul",
     "instruction": "Is the stated category inference valid?",
@@ -231,7 +231,7 @@
   },
   {
     "id": "fake-diamond-category",
-    "title": "Category inference · 2",
+    "title": "Is a fake diamond a real diamond?",
     "category": "Category inference",
     "task": "noul",
     "instruction": "Is the stated category inference valid?",
@@ -251,7 +251,7 @@
   },
   {
     "id": "bedtime-tired",
-    "title": "Story motivation · 1",
+    "title": "Why did Nora go to the bedroom?",
     "category": "Story motivation",
     "task": "noul",
     "instruction": "Does the story support the stated motivation, given the agent's needs and actions?",
@@ -272,7 +272,7 @@
   },
   {
     "id": "bedtime-hungry",
-    "title": "Story motivation · 2",
+    "title": "Was Nora hungry or tired?",
     "category": "Story motivation",
     "task": "noul",
     "instruction": "Does the story support the stated motivation, given the agent's needs and actions?",
@@ -293,7 +293,7 @@
   },
   {
     "id": "dog-animal-supported",
-    "title": "A conclusion that follows",
+    "title": "Follow a rule: is Max an animal?",
     "category": "Logical consistency",
     "task": "noul",
     "instruction": "Does the premise logically entail the conclusion?",
@@ -314,7 +314,7 @@
   },
   {
     "id": "dog-animal-contradicted",
-    "title": "A conclusion that contradicts the facts",
+    "title": "Spot a contradiction: Max is not an animal",
     "category": "Logical consistency",
     "task": "noul",
     "instruction": "Does the premise logically entail the conclusion?",
@@ -335,7 +335,7 @@
   },
   {
     "id": "news-tennis-championship",
-    "title": "A tennis championship",
+    "title": "Classify a tennis news story",
     "category": "News topic classification",
     "task": "choice",
     "instruction": "Which topic best describes the news article?",
@@ -363,7 +363,7 @@
   },
   {
     "id": "news-quarterly-profits",
-    "title": "Quarterly profits and dividends",
+    "title": "Classify a company earnings story",
     "category": "News topic classification",
     "task": "choice",
     "instruction": "Which topic best describes the news article?",
@@ -391,7 +391,7 @@
   },
   {
     "id": "entity-electronics-company",
-    "title": "An electronics company",
+    "title": "Identify an electronics company",
     "category": "Entity type classification",
     "task": "choice",
     "instruction": "Use the article to classify the entity named in its title.",
@@ -460,7 +460,7 @@
   },
   {
     "id": "entity-novel",
-    "title": "Identify an entity",
+    "title": "Identify a novel",
     "category": "Entity type classification",
     "task": "choice",
     "instruction": "Use the article to classify the entity named in its title.",
@@ -529,7 +529,7 @@
   },
   {
     "id": "running-supported",
-    "title": "A supported statement",
+    "title": "Running: a claim supported by the text",
     "category": "Entailment contradiction or neutral",
     "task": "choice",
     "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
@@ -554,7 +554,7 @@
   },
   {
     "id": "running-contradicted",
-    "title": "A conflicting statement",
+    "title": "Running: a claim that contradicts the text",
     "category": "Entailment contradiction or neutral",
     "task": "choice",
     "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
@@ -579,7 +579,7 @@
   },
   {
     "id": "running-unknown-motivation",
-    "title": "Not enough information",
+    "title": "Running: a motive the text does not explain",
     "category": "Entailment contradiction or neutral",
     "task": "choice",
     "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
@@ -604,7 +604,7 @@
   },
   {
     "id": "photosynthesis-background",
-    "title": "Photosynthesis · Topic overlap only",
+    "title": "Photosynthesis: same topic, no answer",
     "category": "Answer evidence selection",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -642,7 +642,7 @@
   },
   {
     "id": "photosynthesis-partial",
-    "title": "Photosynthesis · Partial answer",
+    "title": "Photosynthesis: part of the answer",
     "category": "Answer evidence selection",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -680,7 +680,7 @@
   },
   {
     "id": "photosynthesis-unrelated",
-    "title": "Photosynthesis · Unrelated document",
+    "title": "Photosynthesis: an unrelated passage",
     "category": "Answer evidence selection",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -718,7 +718,7 @@
   },
   {
     "id": "photosynthesis-complete",
-    "title": "Photosynthesis · Complete answer",
+    "title": "Photosynthesis: a complete explanation",
     "category": "Answer evidence selection",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -756,7 +756,7 @@
   },
   {
     "id": "cpu-acronym-unrelated",
-    "title": "CPU acronym · Unrelated document",
+    "title": "CPU meaning: an unrelated passage",
     "category": "FAQ relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -794,7 +794,7 @@
   },
   {
     "id": "cpu-acronym-background",
-    "title": "CPU acronym · Background without the answer",
+    "title": "CPU meaning: background without the expansion",
     "category": "FAQ relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -832,7 +832,7 @@
   },
   {
     "id": "cpu-acronym-complete",
-    "title": "CPU acronym · Complete answer",
+    "title": "CPU meaning: the full abbreviation",
     "category": "FAQ relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -870,7 +870,7 @@
   },
   {
     "id": "cpu-acronym-partial",
-    "title": "CPU acronym · Partial answer",
+    "title": "CPU meaning: only two of the three words",
     "category": "FAQ relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -908,7 +908,7 @@
   },
   {
     "id": "mug-cleaning-partial",
-    "title": "Cleaning a mug · Partial answer",
+    "title": "Tea stains: a cleaning hint without steps",
     "category": "Search document relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -946,7 +946,7 @@
   },
   {
     "id": "mug-cleaning-unrelated",
-    "title": "Cleaning a mug · Unrelated document",
+    "title": "Tea stains: an unrelated passage",
     "category": "Search document relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -984,7 +984,7 @@
   },
   {
     "id": "mug-cleaning-background",
-    "title": "Cleaning a mug · Topic overlap only",
+    "title": "Tea stains: mug facts without cleaning advice",
     "category": "Search document relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
@@ -1022,7 +1022,7 @@
   },
   {
     "id": "mug-cleaning-complete",
-    "title": "Cleaning a mug · Complete answer",
+    "title": "Tea stains: complete cleaning instructions",
     "category": "Search document relevance",
     "task": "score",
     "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",

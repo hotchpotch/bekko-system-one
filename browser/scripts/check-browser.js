@@ -7,10 +7,21 @@ async (page) => {
   const results = [];
   try {
     if (await page.locator('#system').count()) throw Error('System prompt must not be in the UI');
+    if (!await page.locator('#yes').isVisible() || !await page.locator('#no').isVisible()) throw Error('Yes/No meanings must be visible');
+    await page.locator('#model').press('ArrowDown');
+    for (const name of ['Bekko 68M · Coming soon', 'Bekko 400M · Coming soon']) {
+      if (await page.getByRole('option', {name, exact:true}).getAttribute('aria-disabled') !== 'true') throw Error('Unavailable models must be disabled');
+    }
+    await page.locator('#model').press('Escape');
+    const left = await page.locator('.decision-pickers .picker').first().boundingBox();
+    const right = await page.locator('.decision-pickers .picker').last().boundingBox();
+    if (left.y !== right.y || left.x >= right.x) throw Error('Decision and example must be side by side');
+
     for (const task of ['noul', 'choice', 'score']) {
-      await page.locator('#task').selectOption(task);
+      await page.locator('#task').press('ArrowDown');
+      await page.getByRole('option', { name: {noul:'Yes / No',choice:'Choice',score:'Score'}[task], exact:true }).click();
       if (await page.locator('#request-json').isVisible()) throw Error('Request JSON should start collapsed');
-      await page.locator('#run').click();
+      await page.locator('#run-example').click();
       await page.waitForFunction(() => !document.querySelector('#run').disabled, null, { timeout: 60000 });
       const response = JSON.parse(await page.locator('#response-json').textContent());
       if (response.error) throw Error(response.error);
@@ -24,8 +35,10 @@ async (page) => {
     await page.locator('#options').fill('0 | First\n0 | Duplicate');
     await page.locator('#run').click();
     if (!(await page.locator('#result').textContent()).includes('different')) throw Error('Duplicate score values must be rejected');
-    await page.locator('#task').selectOption('noul');
-    await page.locator('#example').selectOption('custom');
+    await page.locator('#task').press('ArrowDown');
+    await page.getByRole('option', {name:'Yes / No',exact:true}).click();
+    await page.locator('#example').fill('Write your own');
+    await page.getByRole('option', {name:'Write your own…',exact:true}).click();
     await page.locator('#instruction').fill('Is this a request for a refund?');
     await page.locator('#state-0').fill('Please refund my purchase.');
     await page.locator('#run').click();

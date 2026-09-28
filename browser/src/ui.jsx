@@ -1,4 +1,5 @@
 import React from "react";
+import Select from "react-select";
 
 export function Button({ secondary = false, className = "", ...props }) {
   return (
@@ -74,6 +75,45 @@ export function ModelLoadProgress({ files, status }) {
         First use also loads the CPU runtime. Downloads can finish before the
         model is ready.
       </p>
+    </div>
+  );
+}
+
+export function Picker({
+  id,
+  label,
+  options,
+  value,
+  onChange,
+  disabled,
+  searchable = true,
+}) {
+  const flat = options.flatMap((option) => option.options || [option]);
+  return (
+    <div className="picker">
+      <label htmlFor={id}>{label}</label>
+      <Select
+        inputId={id}
+        instanceId={id}
+        classNamePrefix="picker"
+        options={options}
+        value={flat.find((option) => option.value === value)}
+        onChange={(option) => option && onChange(option.value)}
+        isDisabled={disabled}
+        isSearchable={searchable}
+        isOptionDisabled={(option) => !!option.disabled}
+        placeholder="Search examples…"
+        noOptionsMessage={() => "No matching examples"}
+        theme={(theme) => ({
+          ...theme,
+          colors: {
+            ...theme.colors,
+            primary: "#235d40",
+            primary25: "#eaf0e4",
+            primary50: "#d5e4d3",
+          },
+        })}
+      />
     </div>
   );
 }

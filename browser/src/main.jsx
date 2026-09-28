@@ -9,7 +9,7 @@ import {
   parseCriteria,
   renderDecision,
 } from "./decision.js";
-import { Button, Textarea, ModelLoadProgress } from "./ui.jsx";
+import { Button, Textarea, ModelLoadProgress, Picker } from "./ui.jsx";
 
 const pretty = (value) => JSON.stringify(value, null, 2);
 const percent = (value) => `${(value * 100).toFixed(1)}%`;
@@ -184,7 +184,7 @@ function App() {
       }
       setBusy(false);
       if (data.ready) {
-        setStatus("Model ready. Run any example to get started.");
+        setStatus("Model loaded. Choose an example and click Run decision.");
         return;
       }
       setOutput({ decision: pending.current, ...data });
@@ -250,26 +250,56 @@ function App() {
         <span className="badge">17M · CPU · Private inputs</span>
       </header>
       <section className="model-panel" aria-label="Model">
-        <div>
-          <strong>Bekko 17M</strong>
-          <p id="model-status" role="status">
+        <div className="model-selection">
+          <Picker
+            id="model"
+            label="Model"
+            value="17m"
+            searchable={false}
+            disabled={busy}
+            options={[
+              { value: "17m", label: "Bekko 17M · 29 MB" },
+              {
+                value: "68m",
+                label: "Bekko 68M · Coming soon",
+                disabled: true,
+              },
+              {
+                value: "400m",
+                label: "Bekko 400M · Coming soon",
+                disabled: true,
+              },
+            ]}
+            onChange={() => {}}
+          />
+          <p
+            id="model-status"
+            role="status"
+            className={loadedBytes !== null ? "loaded" : ""}
+          >
             {loadedBytes !== null
-              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · Ready on your device`
-              : "Model not loaded · 29 MB model · loads on your first run"}
+              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · Runs on your device`
+              : busy
+                ? status
+                : "Not downloaded yet. Your first run loads the model automatically."}
           </p>
         </div>
-        <Button
-          id="load-model"
-          secondary
-          disabled={busy || loadedBytes !== null}
-          onClick={() => start(true)}
-        >
-          {loadedBytes !== null
-            ? "Model ready"
-            : error
-              ? "Retry loading"
-              : "Load model"}
-        </Button>
+        {loadedBytes === null ? (
+          <Button
+            id="load-model"
+            secondary
+            disabled={busy}
+            onClick={() => start(true)}
+          >
+            {busy
+              ? "Loading…"
+              : error
+                ? "Retry download"
+                : "Download model now"}
+          </Button>
+        ) : (
+          <span className="loaded-badge">✓ Downloaded · Ready to run</span>
+        )}
         {busy && loadedBytes === null && (
           <ModelLoadProgress files={files} status={status} />
         )}
@@ -288,37 +318,41 @@ function App() {
               <span className="step">1</span>
               <h2>Set up a decision</h2>
             </div>
-            <label htmlFor="task">Decision type</label>
-            <select
-              id="task"
-              value={form.task}
-              onChange={(event) => choose(event.target.value)}
-            >
-              {Object.entries(tasks).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="example">Try an example</label>
-            <select
-              id="example"
-              value={form.id}
-              onChange={(event) => choose(form.task, event.target.value)}
-            >
-              {groups.map((group) => (
-                <optgroup key={group} label={group}>
-                  {examples
-                    .filter((e) => e.task === form.task && e.category === group)
-                    .map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.title}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-              <option value="custom">Write your own…</option>
-            </select>
+            <div className="decision-pickers">
+              <Picker
+                id="task"
+                label="1. Decision type"
+                value={form.task}
+                disabled={busy}
+                searchable={false}
+                options={Object.entries(tasks).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+                onChange={(task) => choose(task)}
+              />
+              <Picker
+                id="example"
+                label="2. Choose an example"
+                value={form.id}
+                disabled={busy}
+                options={[
+                  ...groups.map((group) => ({
+                    label: group,
+                    options: examples
+                      .filter(
+                        (e) => e.task === form.task && e.category === group,
+                      )
+                      .map((e) => ({ value: e.id, label: e.title })),
+                  })),
+                  { value: "custom", label: "Write your own…" },
+                ]}
+                onChange={(id) => choose(form.task, id)}
+              />
+            </div>
+            <Button id="run-example" type="submit" disabled={busy}>
+              {busy ? "Working…" : "Run decision →"}
+            </Button>
             <div className="form-toolbar">
               <p className="hint">Edit any field to try your own input.</p>
               <Button
@@ -332,7 +366,7 @@ function App() {
             <Textarea
               id="instruction"
               label="Question or instruction"
-              rows={3}
+              rows={2}
               required
               value={form.instruction}
               onChange={(e) => change("instruction", e.target.value)}
@@ -350,7 +384,7 @@ function App() {
                   label={key
                     .replaceAll("_", " ")
                     .replace(/^./, (c) => c.toUpperCase())}
-                  rows={String(value).length > 180 ? 5 : 3}
+                  rows={String(value).length > 180 ? 4 : 2}
                   value={value}
                   onChange={(e) =>
                     change("state", { ...form.state, [key]: e.target.value })
@@ -360,8 +394,7 @@ function App() {
             </div>
             {form.task === "noul" ? (
               <div id="binary-fields">
-                <details id="binary-details" key={form.id}>
-                  <summary>Customize what Yes and No mean</summary>
+                <div className="binary-meanings">
                   <Textarea
                     id="yes"
                     label="Yes means"
@@ -378,7 +411,7 @@ function App() {
                     value={form.no}
                     onChange={(e) => change("no", e.target.value)}
                   />
-                </details>
+                </div>
               </div>
             ) : (
               <div id="option-fields">
