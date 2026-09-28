@@ -1,0 +1,6 @@
+node_modules/
+dist/
+public/model/*
+!public/model/.gitkeep
+__pycache__/
+.playwright-cli/

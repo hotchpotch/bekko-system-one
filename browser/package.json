@@ -1,0 +1,26 @@
+{
+  "name": "bekko-browser",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "infer": "node src/cli.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "0.2.0",
+    "onnxruntime-node": "1.30.0",
+    "onnxruntime-web": "1.30.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
+  }
+}

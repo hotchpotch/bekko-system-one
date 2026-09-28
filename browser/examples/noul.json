@@ -1,0 +1,16 @@
+{
+  "task": "noul",
+  "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+  "state": "{\"noul\":{\"yes\":\"Yes, the condition in the question holds.\",\"no\":\"No, the condition in the question does not hold.\"},\"state\":{\"sentence1\":\"The morning train runs from Fernwick to Ashford.\",\"sentence2\":\"The morning train runs to Ashford from Fernwick.\"}}",
+  "layout": "instruction_state",
+  "candidates": [
+    {
+      "id": "false",
+      "text": "Candidate: false: No, the condition in the question does not hold."
+    },
+    {
+      "id": "true",
+      "text": "Candidate: true: Yes, the condition in the question holds."
+    }
+  ]
+}

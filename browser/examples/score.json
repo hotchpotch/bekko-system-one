@@ -1,0 +1,33 @@
+{
+  "task": "score",
+  "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+  "state": "{\"query\":\"How does photosynthesis work in green plants?\",\"document\":\"Photosynthesis is the process by which green plants use sunlight to convert water and carbon dioxide into sugars, releasing oxygen. It occurs in chloroplasts and provides the chemical energy plants need to grow.\"}",
+  "layout": "instruction_state",
+  "candidates": [
+    {
+      "id": "0",
+      "text": "Candidate: 0: No answer. The document does not contain any information relevant to the query.",
+      "value": 0
+    },
+    {
+      "id": "1",
+      "text": "Candidate: 1: Topic only. The document shares the broad subject but contains no requested facts.",
+      "value": 1
+    },
+    {
+      "id": "2",
+      "text": "Candidate: 2: Background. Useful facts about the subject, but no answer to the question.",
+      "value": 2
+    },
+    {
+      "id": "3",
+      "text": "Candidate: 3: Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+      "value": 3
+    },
+    {
+      "id": "4",
+      "text": "Candidate: 4: Complete answer. All the details requested by the query are explicitly stated in the document.",
+      "value": 4
+    }
+  ]
+}

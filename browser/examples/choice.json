@@ -1,0 +1,24 @@
+{
+  "task": "choice",
+  "instruction": "Which topic best describes the news article?",
+  "state": "{\"article\":\"The tennis player won the final in three sets on Sunday, securing her first major championship trophy.\"}",
+  "layout": "instruction_state",
+  "candidates": [
+    {
+      "id": "sports",
+      "text": "Candidate: sports: Sports news."
+    },
+    {
+      "id": "business",
+      "text": "Candidate: business: Business and economic news."
+    },
+    {
+      "id": "sci_tech",
+      "text": "Candidate: sci_tech: Science and technology news."
+    },
+    {
+      "id": "world",
+      "text": "Candidate: world: World news and international politics."
+    }
+  ]
+}

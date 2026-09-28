@@ -1,0 +1,159 @@
+[
+  {
+    "decision": {
+      "task": "noul",
+      "instruction": "Is this email unsolicited spam or bulk marketing?",
+      "state": {
+        "subject": "Save 80% on replica watches",
+        "body": "Dear customer, our replica watch clearance sale is here! Get a luxury-style watch for only $39. Buy two and get one free. This offer is being sent to our full promotional mailing list. Forward this offer to your friends and order before midnight."
+      },
+      "criteria": [
+        {
+          "id": "true",
+          "description": "Yes, the condition in the question holds."
+        },
+        {
+          "id": "false",
+          "description": "No, the condition in the question does not hold."
+        }
+      ]
+    },
+    "request": {
+      "task": "noul",
+      "instruction": "Is this email unsolicited spam or bulk marketing?",
+      "state": "{\"noul\":{\"yes\":\"Yes, the condition in the question holds.\",\"no\":\"No, the condition in the question does not hold.\"},\"state\":{\"subject\":\"Save 80% on replica watches\",\"body\":\"Dear customer, our replica watch clearance sale is here! Get a luxury-style watch for only $39. Buy two and get one free. This offer is being sent to our full promotional mailing list. Forward this offer to your friends and order before midnight.\"}}",
+      "layout": "instruction_state",
+      "candidates": [
+        {
+          "id": "true",
+          "text": "Candidate: true: Yes, the condition in the question holds."
+        },
+        {
+          "id": "false",
+          "text": "Candidate: false: No, the condition in the question does not hold."
+        }
+      ]
+    }
+  },
+  {
+    "decision": {
+      "task": "choice",
+      "instruction": "Which topic best describes the news article?",
+      "state": {
+        "article": "The tennis player won the final in three sets on Sunday, securing her first major championship trophy."
+      },
+      "criteria": [
+        {
+          "id": "sports",
+          "description": "Sports news."
+        },
+        {
+          "id": "business",
+          "description": "Business and economic news."
+        },
+        {
+          "id": "sci_tech",
+          "description": "Science and technology news."
+        },
+        {
+          "id": "world",
+          "description": "World news and international politics."
+        }
+      ]
+    },
+    "request": {
+      "task": "choice",
+      "instruction": "Which topic best describes the news article?",
+      "state": "{\"article\":\"The tennis player won the final in three sets on Sunday, securing her first major championship trophy.\"}",
+      "layout": "instruction_state",
+      "candidates": [
+        {
+          "id": "sports",
+          "text": "Candidate: sports: Sports news."
+        },
+        {
+          "id": "business",
+          "text": "Candidate: business: Business and economic news."
+        },
+        {
+          "id": "sci_tech",
+          "text": "Candidate: sci_tech: Science and technology news."
+        },
+        {
+          "id": "world",
+          "text": "Candidate: world: World news and international politics."
+        }
+      ]
+    }
+  },
+  {
+    "decision": {
+      "task": "score",
+      "instruction": "How useful is this document for answering the query? Judge only the evidence in the document, using the five relevance levels.",
+      "state": {
+        "query": "What is photosynthesis?",
+        "document": "Botany is the study of plants. Botanists classify trees, flowers, and grasses and compare their structures."
+      },
+      "criteria": [
+        {
+          "id": "0",
+          "value": 0,
+          "description": "Not useful: unrelated to the query or about the wrong target."
+        },
+        {
+          "id": "1",
+          "value": 1,
+          "description": "Weakly related: shares a topic but provides no useful answer."
+        },
+        {
+          "id": "2",
+          "value": 2,
+          "description": "Useful context: describes the exact target but does not answer the query."
+        },
+        {
+          "id": "3",
+          "value": 3,
+          "description": "Partial answer: answers an important part of the query for the exact target."
+        },
+        {
+          "id": "4",
+          "value": 4,
+          "description": "Complete answer: directly provides enough information to answer the query."
+        }
+      ]
+    },
+    "request": {
+      "task": "score",
+      "instruction": "How useful is this document for answering the query? Judge only the evidence in the document, using the five relevance levels.",
+      "state": "{\"query\":\"What is photosynthesis?\",\"document\":\"Botany is the study of plants. Botanists classify trees, flowers, and grasses and compare their structures.\"}",
+      "layout": "instruction_state",
+      "candidates": [
+        {
+          "id": "0",
+          "text": "Candidate: 0: Not useful: unrelated to the query or about the wrong target.",
+          "value": 0
+        },
+        {
+          "id": "1",
+          "text": "Candidate: 1: Weakly related: shares a topic but provides no useful answer.",
+          "value": 1
+        },
+        {
+          "id": "2",
+          "text": "Candidate: 2: Useful context: describes the exact target but does not answer the query.",
+          "value": 2
+        },
+        {
+          "id": "3",
+          "text": "Candidate: 3: Partial answer: answers an important part of the query for the exact target.",
+          "value": 3
+        },
+        {
+          "id": "4",
+          "text": "Candidate: 4: Complete answer: directly provides enough information to answer the query.",
+          "value": 4
+        }
+      ]
+    }
+  }
+]

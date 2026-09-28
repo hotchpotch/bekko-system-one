@@ -1,0 +1,1061 @@
+[
+  {
+    "id": "email-promotion",
+    "title": "Promotional email",
+    "category": "Email spam detection",
+    "task": "noul",
+    "instruction": "Is this email unsolicited spam or bulk marketing?",
+    "state": {
+      "subject": "Save 80% on replica watches",
+      "body": "Dear customer, our replica watch clearance sale is here! Get a luxury-style watch for only $39. Buy two and get one free. This offer is being sent to our full promotional mailing list. Forward this offer to your friends and order before midnight."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The email is unsolicited spam or bulk marketing."
+      },
+      {
+        "id": "false",
+        "description": "The email is not unsolicited spam or bulk marketing."
+      }
+    ]
+  },
+  {
+    "id": "email-meeting-followup",
+    "title": "Personal meeting follow-up",
+    "category": "Email spam detection",
+    "task": "noul",
+    "instruction": "Is this email unsolicited spam or bulk marketing?",
+    "state": {
+      "subject": "Meeting notes",
+      "body": "Hi Morgan, attached are the notes from our meeting. Could you check the final paragraph and send me your comments? Thanks, Riley."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The email is unsolicited spam or bulk marketing."
+      },
+      {
+        "id": "false",
+        "description": "The email is not unsolicited spam or bulk marketing."
+      }
+    ]
+  },
+  {
+    "id": "train-route-same",
+    "title": "Same meaning",
+    "category": "Paraphrase verification",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "The morning train runs from Fernwick to Ashford.",
+      "sentence2": "The morning train runs to Ashford from Fernwick."
+    },
+    "criteria": [
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      },
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      }
+    ]
+  },
+  {
+    "id": "train-route-reversed",
+    "title": "Different meaning",
+    "category": "Paraphrase verification",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "The morning train runs from Fernwick to Ashford.",
+      "sentence2": "The morning train runs from Ashford to Fernwick."
+    },
+    "criteria": [
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      },
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      }
+    ]
+  },
+  {
+    "id": "nurses-shared-action",
+    "title": "Shared action",
+    "category": "Sentence entailment",
+    "task": "noul",
+    "instruction": "Does the premise entail the hypothesis?",
+    "state": {
+      "premise": "Three nurses laughed loudly in the hospital cafeteria.",
+      "hypothesis": "The nurses laughed."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise entails the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not entail the hypothesis. This includes both contradiction and neutral cases."
+      }
+    ]
+  },
+  {
+    "id": "drivers-different-action",
+    "title": "Who did what?",
+    "category": "Sentence entailment",
+    "task": "noul",
+    "instruction": "Does the premise entail the hypothesis?",
+    "state": {
+      "premise": "The nurses and the drivers laughed.",
+      "hypothesis": "The drivers slept."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise entails the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not entail the hypothesis. This includes both contradiction and neutral cases."
+      }
+    ]
+  },
+  {
+    "id": "whale-lungs",
+    "title": "Whale facts",
+    "category": "Evidence supports a statement",
+    "task": "noul",
+    "instruction": "Does the premise support the hypothesis?",
+    "state": {
+      "premise": "A whale is a mammal that breathes air using lungs.",
+      "hypothesis": "Whales breathe air with lungs."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise supports the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not support the hypothesis."
+      }
+    ]
+  },
+  {
+    "id": "whale-gills",
+    "title": "Check the evidence",
+    "category": "Evidence supports a statement",
+    "task": "noul",
+    "instruction": "Does the premise support the hypothesis?",
+    "state": {
+      "premise": "Whales are mammals. They breathe air using lungs, not gills.",
+      "hypothesis": "Whales breathe through gills."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise supports the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not support the hypothesis."
+      }
+    ]
+  },
+  {
+    "id": "squirrel-rule-supported",
+    "title": "Explicit rule reasoning · 1",
+    "category": "Explicit rule reasoning",
+    "task": "noul",
+    "instruction": "Is the hypothesis true under the stated facts and rules? Under the closed-world assumption, an unprovable positive proposition is false and its negation is true.",
+    "state": {
+      "premise": "The squirrel is green. If something is green then it is rough.",
+      "hypothesis": "The squirrel is rough."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "squirrel-rule-contradicted",
+    "title": "Explicit rule reasoning · 2",
+    "category": "Explicit rule reasoning",
+    "task": "noul",
+    "instruction": "Is the hypothesis true under the stated facts and rules? Under the closed-world assumption, an unprovable positive proposition is false and its negation is true.",
+    "state": {
+      "premise": "The squirrel is green. If something is green then it is rough.",
+      "hypothesis": "The squirrel is not rough."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "wooden-chair-category",
+    "title": "Category inference · 1",
+    "category": "Category inference",
+    "task": "noul",
+    "instruction": "Is the stated category inference valid?",
+    "state": {
+      "statement": "A wooden chair is a chair."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "fake-diamond-category",
+    "title": "Category inference · 2",
+    "category": "Category inference",
+    "task": "noul",
+    "instruction": "Is the stated category inference valid?",
+    "state": {
+      "statement": "A fake diamond is a diamond."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "bedtime-tired",
+    "title": "Story motivation · 1",
+    "category": "Story motivation",
+    "task": "noul",
+    "instruction": "Does the story support the stated motivation, given the agent's needs and actions?",
+    "state": {
+      "premise": "Nora is tired. Victor is hungry. Nora went to the bedroom.",
+      "hypothesis": "Nora went to the bedroom because she was tired."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "bedtime-hungry",
+    "title": "Story motivation · 2",
+    "category": "Story motivation",
+    "task": "noul",
+    "instruction": "Does the story support the stated motivation, given the agent's needs and actions?",
+    "state": {
+      "premise": "Nora is tired. Victor is hungry. Nora went to the bedroom.",
+      "hypothesis": "Nora went to the bedroom because she was hungry."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "dog-animal-supported",
+    "title": "A conclusion that follows",
+    "category": "Logical consistency",
+    "task": "noul",
+    "instruction": "Does the premise logically entail the conclusion?",
+    "state": {
+      "premise": "All dogs are animals. Max is a dog.",
+      "conclusion": "Max is an animal."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "dog-animal-contradicted",
+    "title": "A conclusion that contradicts the facts",
+    "category": "Logical consistency",
+    "task": "noul",
+    "instruction": "Does the premise logically entail the conclusion?",
+    "state": {
+      "premise": "All dogs are animals. Max is a dog.",
+      "conclusion": "Max is not an animal."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "Yes, the condition in the question holds."
+      },
+      {
+        "id": "false",
+        "description": "No, the condition in the question does not hold."
+      }
+    ]
+  },
+  {
+    "id": "news-tennis-championship",
+    "title": "A tennis championship",
+    "category": "News topic classification",
+    "task": "choice",
+    "instruction": "Which topic best describes the news article?",
+    "state": {
+      "article": "The tennis player won the final in three sets on Sunday, securing her first major championship trophy."
+    },
+    "criteria": [
+      {
+        "id": "sports",
+        "description": "Sports news."
+      },
+      {
+        "id": "business",
+        "description": "Business and economic news."
+      },
+      {
+        "id": "sci_tech",
+        "description": "Science and technology news."
+      },
+      {
+        "id": "world",
+        "description": "World news and international politics."
+      }
+    ]
+  },
+  {
+    "id": "news-quarterly-profits",
+    "title": "Quarterly profits and dividends",
+    "category": "News topic classification",
+    "task": "choice",
+    "instruction": "Which topic best describes the news article?",
+    "state": {
+      "article": "The retail chain reported a 20 percent rise in quarterly profits. Revenue increased, shares rose on the stock exchange, and the company announced a larger dividend for shareholders."
+    },
+    "criteria": [
+      {
+        "id": "sports",
+        "description": "Sports news."
+      },
+      {
+        "id": "business",
+        "description": "Business and economic news."
+      },
+      {
+        "id": "sci_tech",
+        "description": "Science and technology news."
+      },
+      {
+        "id": "world",
+        "description": "World news and international politics."
+      }
+    ]
+  },
+  {
+    "id": "entity-electronics-company",
+    "title": "An electronics company",
+    "category": "Entity type classification",
+    "task": "choice",
+    "instruction": "Use the article to classify the entity named in its title.",
+    "state": {
+      "title": "Linden Circuit Ltd",
+      "content": "Linden Circuit Ltd is a company that manufactures electronic sensors and sells them to industrial customers."
+    },
+    "criteria": [
+      {
+        "id": "WrittenWork",
+        "description": "Written Work"
+      },
+      {
+        "id": "Village",
+        "description": "Village"
+      },
+      {
+        "id": "Company",
+        "description": "Company"
+      },
+      {
+        "id": "Plant",
+        "description": "Plant"
+      },
+      {
+        "id": "MeanOfTransportation",
+        "description": "Mean Of Transportation"
+      },
+      {
+        "id": "Athlete",
+        "description": "Athlete"
+      },
+      {
+        "id": "EducationalInstitution",
+        "description": "Educational Institution"
+      },
+      {
+        "id": "Album",
+        "description": "Album"
+      },
+      {
+        "id": "NaturalPlace",
+        "description": "Natural Place"
+      },
+      {
+        "id": "Animal",
+        "description": "Animal"
+      },
+      {
+        "id": "Artist",
+        "description": "Artist"
+      },
+      {
+        "id": "Building",
+        "description": "Building"
+      },
+      {
+        "id": "Film",
+        "description": "Film"
+      },
+      {
+        "id": "OfficeHolder",
+        "description": "Office Holder"
+      }
+    ]
+  },
+  {
+    "id": "entity-novel",
+    "title": "Identify an entity",
+    "category": "Entity type classification",
+    "task": "choice",
+    "instruction": "Use the article to classify the entity named in its title.",
+    "state": {
+      "title": "The Amber Voyage",
+      "content": "The Amber Voyage is a novel written by fictional author Mara Vale. The book follows a sailor searching for a lost island."
+    },
+    "criteria": [
+      {
+        "id": "WrittenWork",
+        "description": "Written Work"
+      },
+      {
+        "id": "Village",
+        "description": "Village"
+      },
+      {
+        "id": "Company",
+        "description": "Company"
+      },
+      {
+        "id": "Plant",
+        "description": "Plant"
+      },
+      {
+        "id": "MeanOfTransportation",
+        "description": "Mean Of Transportation"
+      },
+      {
+        "id": "Athlete",
+        "description": "Athlete"
+      },
+      {
+        "id": "EducationalInstitution",
+        "description": "Educational Institution"
+      },
+      {
+        "id": "Album",
+        "description": "Album"
+      },
+      {
+        "id": "NaturalPlace",
+        "description": "Natural Place"
+      },
+      {
+        "id": "Animal",
+        "description": "Animal"
+      },
+      {
+        "id": "Artist",
+        "description": "Artist"
+      },
+      {
+        "id": "Building",
+        "description": "Building"
+      },
+      {
+        "id": "Film",
+        "description": "Film"
+      },
+      {
+        "id": "OfficeHolder",
+        "description": "Office Holder"
+      }
+    ]
+  },
+  {
+    "id": "running-supported",
+    "title": "A supported statement",
+    "category": "Entailment contradiction or neutral",
+    "task": "choice",
+    "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
+    "state": {
+      "premise": "A woman is running across a field.",
+      "hypothesis": "A woman is running."
+    },
+    "criteria": [
+      {
+        "id": "neutral",
+        "description": "The premise does not determine whether the hypothesis is true."
+      },
+      {
+        "id": "contradiction",
+        "description": "The premise guarantees that the hypothesis is false."
+      },
+      {
+        "id": "entailment",
+        "description": "The premise guarantees that the hypothesis is true."
+      }
+    ]
+  },
+  {
+    "id": "running-contradicted",
+    "title": "A conflicting statement",
+    "category": "Entailment contradiction or neutral",
+    "task": "choice",
+    "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
+    "state": {
+      "premise": "A woman is running across a field.",
+      "hypothesis": "Nobody is running."
+    },
+    "criteria": [
+      {
+        "id": "neutral",
+        "description": "The premise does not determine whether the hypothesis is true."
+      },
+      {
+        "id": "contradiction",
+        "description": "The premise guarantees that the hypothesis is false."
+      },
+      {
+        "id": "entailment",
+        "description": "The premise guarantees that the hypothesis is true."
+      }
+    ]
+  },
+  {
+    "id": "running-unknown-motivation",
+    "title": "Not enough information",
+    "category": "Entailment contradiction or neutral",
+    "task": "choice",
+    "instruction": "Based only on the premise, is the hypothesis definitely true (entailment), definitely false (contradiction), or not determined (neutral)?",
+    "state": {
+      "premise": "A woman is running across a field.",
+      "hypothesis": "The woman is running to catch a bus."
+    },
+    "criteria": [
+      {
+        "id": "neutral",
+        "description": "The premise does not determine whether the hypothesis is true."
+      },
+      {
+        "id": "contradiction",
+        "description": "The premise guarantees that the hypothesis is false."
+      },
+      {
+        "id": "entailment",
+        "description": "The premise guarantees that the hypothesis is true."
+      }
+    ]
+  },
+  {
+    "id": "photosynthesis-background",
+    "title": "Photosynthesis · Topic overlap only",
+    "category": "Answer evidence selection",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How does photosynthesis work in green plants?",
+      "document": "A gardening magazine lists popular flowering plants and their colors."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "photosynthesis-partial",
+    "title": "Photosynthesis · Partial answer",
+    "category": "Answer evidence selection",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How does photosynthesis work in green plants?",
+      "document": "In photosynthesis, green plants absorb carbon dioxide and water. Sunlight supplies the energy for the process."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "photosynthesis-unrelated",
+    "title": "Photosynthesis · Unrelated document",
+    "category": "Answer evidence selection",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How does photosynthesis work in green plants?",
+      "document": "The football team won the match by three goals to one."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "photosynthesis-complete",
+    "title": "Photosynthesis · Complete answer",
+    "category": "Answer evidence selection",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How does photosynthesis work in green plants?",
+      "document": "Photosynthesis is the process by which green plants use sunlight to convert water and carbon dioxide into sugars, releasing oxygen. It occurs in chloroplasts and provides the chemical energy plants need to grow."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "cpu-acronym-unrelated",
+    "title": "CPU acronym · Unrelated document",
+    "category": "FAQ relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "What does CPU stand for in a computer?",
+      "document": "The football team won the match by three goals to one."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "cpu-acronym-background",
+    "title": "CPU acronym · Background without the answer",
+    "category": "FAQ relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "What does CPU stand for in a computer?",
+      "document": "The CPU executes instructions and performs calculations. Modern CPUs often have multiple cores, but this text does not expand the abbreviation."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "cpu-acronym-complete",
+    "title": "CPU acronym · Complete answer",
+    "category": "FAQ relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "What does CPU stand for in a computer?",
+      "document": "CPU stands for Central Processing Unit. It is the processor in a computer that executes program instructions and performs calculations."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "cpu-acronym-partial",
+    "title": "CPU acronym · Partial answer",
+    "category": "FAQ relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "What does CPU stand for in a computer?",
+      "document": "CPU is an abbreviation beginning with the words Central Processing. This excerpt omits the word represented by the final letter."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "mug-cleaning-partial",
+    "title": "Cleaning a mug · Partial answer",
+    "category": "Search document relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How do I remove tea stains from a ceramic mug?",
+      "document": "Baking soda can help remove tea stains from a ceramic mug. This note does not explain how to apply it or finish cleaning."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "mug-cleaning-unrelated",
+    "title": "Cleaning a mug · Unrelated document",
+    "category": "Search document relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How do I remove tea stains from a ceramic mug?",
+      "document": "The football team won the match by three goals to one."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "mug-cleaning-background",
+    "title": "Cleaning a mug · Topic overlap only",
+    "category": "Search document relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How do I remove tea stains from a ceramic mug?",
+      "document": "Ceramic mugs come in many colors and are often used for tea and coffee."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "mug-cleaning-complete",
+    "title": "Cleaning a mug · Complete answer",
+    "category": "Search document relevance",
+    "task": "score",
+    "instruction": "Does the document contain the answer to the query? Rate it from unrelated to a complete answer.",
+    "state": {
+      "query": "How do I remove tea stains from a ceramic mug?",
+      "document": "To remove tea stains from a ceramic mug, use a paste of baking soda and water. Rub it onto the stains, scrub gently, and rinse thoroughly."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No answer. The document does not contain any information relevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. The document shares the broad subject but contains no requested facts.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background. Useful facts about the subject, but no answer to the question.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. The document states some of the requested details, but an important requested detail is missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. All the details requested by the query are explicitly stated in the document.",
+        "value": 4
+      }
+    ]
+  }
+]
