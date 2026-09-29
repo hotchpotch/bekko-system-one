@@ -677,7 +677,7 @@ function App() {
             ) : output ? (
               <Result output={output} />
             ) : busy ? (
-              <DecisionActivity loading={loadedBytes === null} device={deviceLabel(device)} />
+              <DecisionActivity loading={loadedBytes === null} device={deviceLabel(device)} files={files} status={status} expectedBytes={model.bytes} />
             ) : (
               <div className="empty-result">
                 <span className="empty-icon"><ChartNoAxesColumnIncreasing size={27} aria-hidden="true" /></span>

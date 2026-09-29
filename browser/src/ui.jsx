@@ -197,7 +197,7 @@ export function HelpTooltip({ id, label, children }) {
   );
 }
 
-export function DecisionActivity({ loading, device }) {
+export function DecisionActivity({ loading, device, files, status, expectedBytes }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = performance.now();
@@ -218,13 +218,15 @@ export function DecisionActivity({ loading, device }) {
       </div>
       <h3>{loading ? "Getting your model ready" : "Working on your decision"}<span className="activity-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></h3>
       <p>{loading
-        ? "Download progress is shown above. The model will run on your device."
+        ? "Downloading the model to your browser to run on your device."
         : "Comparing your options with the information you provided."}</p>
       <div className="activity-meta">
         <span>{loading ? "Loading model" : `Running locally · ${device}`}</span>
         <span className="activity-elapsed" aria-live="off"><Timer size={13} aria-hidden="true" />{elapsed.toFixed(1)} s elapsed</span>
       </div>
-      <div className="activity-sweep" aria-hidden="true"><span /></div>
+      {loading
+        ? <ModelLoadProgress files={files} status={status} expectedBytes={expectedBytes} />
+        : <div className="activity-sweep" aria-hidden="true"><span /></div>}
       <p className="activity-reassurance">{!loading && elapsed >= 10
         ? "Larger models and longer inputs can take more time. You can keep this tab open."
         : "Your input stays on this device."}</p>

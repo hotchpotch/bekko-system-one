@@ -989,3 +989,5 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 @media (max-width: 380px) {
   .task-option { font-size: 11px; gap: 4px; padding: 9px 4px; }
 }
+
+.decision-activity .load-progress { width: 100%; margin-top: 16px; text-align: left; }
