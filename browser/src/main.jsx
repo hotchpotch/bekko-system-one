@@ -475,7 +475,7 @@ function App() {
                       id={`state-${index}`}
                       data-key={key}
                       aria-label={`Context value ${index + 1}${key ? ` (${key})` : ""}`}
-                      rows={String(value).length > 180 ? 4 : 2}
+                      maxRows={10}
                       value={value}
                       onChange={(e) => change("context", form.context.map((entry, i) =>
                         i === index ? [entry[0], e.target.value] : entry

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import Select from "react-select";
 
 export function Button({ secondary = false, className = "", ...props }) {
@@ -9,11 +9,41 @@ export function Button({ secondary = false, className = "", ...props }) {
     />
   );
 }
-export function Textarea({ id, label, help, ...props }) {
+export function Textarea({ id, label, help, maxRows, ...props }) {
+  const textarea = useRef(null);
+  useLayoutEffect(() => {
+    if (!maxRows) return;
+    const element = textarea.current;
+    const resize = () => {
+      const style = getComputedStyle(element);
+      const line = parseFloat(style.lineHeight);
+      const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+      const maximum = line * maxRows + padding + border;
+      element.style.height = "auto";
+      const content = element.scrollHeight + border;
+      element.style.height = `${Math.min(maximum, Math.max(line + padding + border, content))}px`;
+      element.style.overflowY = content > maximum ? "auto" : "hidden";
+    };
+    resize();
+    let width = element.getBoundingClientRect().width;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = element.getBoundingClientRect().width;
+      if (nextWidth !== width) {
+        width = nextWidth;
+        resize();
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [maxRows, props.value]);
   return (
     <div className="field">
       {label && <label htmlFor={id}>{label}</label>}
       <textarea
+        ref={textarea}
+        rows={maxRows ? 1 : undefined}
+        style={maxRows ? { resize: "none" } : undefined}
         id={id}
         aria-describedby={help ? `${id}-help` : undefined}
         {...props}
