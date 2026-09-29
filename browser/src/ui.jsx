@@ -216,7 +216,7 @@ export function DecisionActivity({ loading, device, files, status, expectedBytes
           ))}
         </div>
       </div>
-      <h3>{loading ? "Getting your model ready" : "Working on your decision"}<span className="activity-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></h3>
+      <h3>{loading ? "Getting your model ready" : "Analyzing your input"}<span className="activity-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></h3>
       <p>{loading
         ? "Downloading the model to your browser to run on your device."
         : "Comparing your options with the information you provided."}</p>

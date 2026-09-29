@@ -78,7 +78,7 @@ function Result({ output }) {
   return (
     <>
       <div className="result-kicker">
-        {decision.task === "score" ? "Model score" : "Model prediction"}
+        {decision.task === "score" ? "Estimated score" : decision.task === "choice" ? "Most likely option" : "Predicted answer"}
         <HelpTooltip id="result-help" label="Help with this result">
           {decision.task === "score"
             ? "The score averages your numeric levels using their probabilities. The highlighted level is closest to that score; ties use the first level in your input order. The bars show the probability for each level, so the longest bar may belong to a different level."
@@ -250,7 +250,7 @@ function App() {
       }
       setBusy(false);
       if (data.ready) {
-        setStatus("Model loaded. Choose an example and click Run decision.");
+        setStatus("Model loaded. Choose an example and click Run model.");
         return;
       }
       setOutput({ decision: pending.current, ...data });
@@ -411,7 +411,7 @@ function App() {
                 : "Load model"}
           </Button>
         ) : (
-          <span className="loaded-badge"><CircleCheck size={17} aria-hidden="true" /> Loaded · Ready to run</span>
+          <span className="loaded-badge"><CircleCheck size={17} aria-hidden="true" /> Model ready</span>
         )}
           <p
             id="model-status"
@@ -459,7 +459,7 @@ function App() {
           <fieldset id="inputs" disabled={busy}>
             <div className="section-title">
               <span className="step"><SlidersHorizontal size={18} aria-hidden="true" /></span>
-              <h2>Set up a decision</h2>
+              <h2>Try a decision</h2>
             </div>
             <div className="decision-pickers">
               <fieldset id="task" className="task-radios" aria-describedby="task-help">
@@ -468,7 +468,7 @@ function App() {
                     1. Decision type
                     <HelpTooltip id="task-help" label="Help with decision types">
                       {{
-                  noul: "Noul checks a condition and returns Yes/No probabilities. Use Yes means and No means to define what each answer represents.",
+                  noul: "Noul checks a condition and returns Yes/No probabilities. Use the Yes and No meanings to define what each answer represents.",
                   choice: "Choice selects one of your options. Write distinct alternatives and describe them if their names alone are unclear.",
                   score: "Score rates the context against numeric levels. The result is a probability-weighted average, so it can fall between levels.",
                       }[form.task]}
@@ -506,7 +506,7 @@ function App() {
             </div>
             <Button id="run-example" type="submit" disabled={busy}>
               {busy ? <LoaderCircle size={17} className="spin" aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}
-              {busy ? "Working…" : "Run decision"}
+              {busy ? "Working…" : "Run model"}
             </Button>
             <button
               type="button"
@@ -516,7 +516,7 @@ function App() {
               onClick={() => setEditorOpen(open => !open)}
             >
               <SlidersHorizontal size={16} aria-hidden="true" />
-              <span>{editorOpen ? "Hide input details" : "View or edit input"}</span>
+              <span>{editorOpen ? "Hide input" : "View or edit input"}</span>
               <ChevronDown size={16} aria-hidden="true" />
             </button>
             <div id="decision-editor">
@@ -532,7 +532,7 @@ function App() {
               </div>
               <Textarea
                 id="instruction"
-                label="Question or instruction"
+                label={form.task === "noul" ? "Question to answer" : form.task === "choice" ? "Selection instructions" : "Scoring instructions"}
                 rows={2}
                 required
                 value={form.instruction}
@@ -542,11 +542,11 @@ function App() {
                 <div className="context-heading">
                   <h3>Context</h3>
                   <HelpTooltip id="context-help" label="Help with context fields">
-                    Each key names the value below it. Both are sent to the model.
-                    Use a unique, non-empty key.
+                    Each field name describes the text below it. Both are sent to the model.
+                    Give each field a unique, non-empty name.
                   </HelpTooltip>
                 </div>
-                <span className="hint">The information to judge</span>
+                <span className="hint">Information for the model</span>
               </div>
               <div id="state-fields">
                 {form.context.map(([key, value], index) => {
@@ -554,7 +554,7 @@ function App() {
                   return (
                     <div className="context-field" key={index}>
                       <div className="context-key-row">
-                        <label htmlFor={`state-key-${index}`}>Key</label>
+                        <label htmlFor={`state-key-${index}`}>Field name</label>
                         <input
                           id={`state-key-${index}`}
                           aria-label={`Context key ${index + 1}`}
@@ -609,8 +609,8 @@ function App() {
                     <div className="context-field meaning-field">
                       <Textarea
                         id="yes"
-                        label="Yes means"
-                        help="Describe the condition that counts as Yes. Define the opposite under No means; these descriptions are included in the model input."
+                        label="Meaning of “Yes”"
+                        help="Describe the condition that counts as Yes. Define the opposite under Meaning of “No”; these descriptions are included in the model input."
                         rows={2}
                         required
                         value={form.yes}
@@ -620,7 +620,7 @@ function App() {
                     <div className="context-field meaning-field">
                       <Textarea
                         id="no"
-                        label="No means"
+                        label="Meaning of “No”"
                         rows={2}
                         required
                         value={form.no}
@@ -633,7 +633,7 @@ function App() {
                 <div id="option-fields">
                   <Textarea
                     id="options"
-                    label={form.task === "score" ? "Score levels" : "Options"}
+                    label={form.task === "score" ? "Scoring scale" : "Options to choose from"}
                     rows={7}
                     required
                     spellCheck={false}
@@ -656,7 +656,7 @@ function App() {
               </>
             ) : (
               <>
-                <Play size={17} aria-hidden="true" /> Run decision
+                <Play size={17} aria-hidden="true" /> Run model
               </>
             )}
           </Button>
@@ -681,8 +681,8 @@ function App() {
             ) : (
               <div className="empty-result">
                 <span className="empty-icon"><ChartNoAxesColumnIncreasing size={27} aria-hidden="true" /></span>
-                <h3>Ready for your first decision</h3>
-                <p>Choose an example and run it to see the answer and probabilities.</p>
+                <h3>Your result will appear here</h3>
+                <p>Choose an example, then select Run model to see its prediction and probabilities.</p>
               </div>
             )}
           </div>
