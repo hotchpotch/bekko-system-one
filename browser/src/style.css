@@ -971,6 +971,7 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 .editor-toggle { display: none; }
 @media (max-width: 600px) {
   .editor-toggle { display: flex; width: 100%; margin: 12px 0 0; padding: 10px 0; border: 0; border-top: 1px solid #e1e8dc; border-radius: 0; background: transparent; color: #48694e; font-size: 12px; text-align: left; box-shadow: none; }
+  .editor-toggle:hover, .editor-toggle:active { background: #edf3e9; color: #28593f; box-shadow: none; }
   .editor-toggle span { flex: 1; }
   .editor-open .editor-toggle > svg:last-child { transform: rotate(180deg); }
   .editor-closed #decision-editor, .editor-closed #run { display: none; }
