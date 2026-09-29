@@ -3,12 +3,14 @@
 from .data import DecisionMetadata, Group, prepare_batch
 from .decisions import ChoicePrediction, NoulPrediction, ScorePrediction, interpret_prediction
 from .inference import clear_inference_cache
+from .inference_v0 import BekkoSentenceTransformer
 from .model import InferenceEngine, build_model, predict, predict_typed, rank
 from .modules import DecisionHeads, SharedPrefix
 from .query_budget import QueryParts
 from .release import render_input_group
 
 __all__ = [
+    "BekkoSentenceTransformer",
     "DecisionHeads",
     "DecisionMetadata",
     "ChoicePrediction",

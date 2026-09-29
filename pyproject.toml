@@ -3,6 +3,8 @@ name = "bekko-system-one"
 version = "0.1.0"
 description = "Shared-prefix candidate scoring and typed decisions with Sentence Transformers"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Yuichi Tateno", email = "hotchpotch@gmail.com" }
 ]
@@ -18,7 +20,12 @@ dependencies = [
     "wandb>=0.24",
     "datasets>=5.0",
     "huggingface-hub>=1.0",
+    "tqdm>=4.67",
 ]
+
+[project.urls]
+Repository = "https://github.com/hotchpotch/bekko-system-one"
+Discussions = "https://github.com/hotchpotch/bekko-system-one/discussions"
 
 [project.optional-dependencies]
 fa2 = ["flash-attn==2.8.3"]
@@ -84,7 +91,7 @@ set_env =
     HF_HUB_OFFLINE = 1
     HF_DATASETS_OFFLINE = 1
     TRITON_CACHE_DIR = {env_tmp_dir}/triton-cache
-commands = pytest {posargs}
+commands = pytest {posargs:-m "not cuda"}
 
 [testenv:lint]
 commands = ruff check .

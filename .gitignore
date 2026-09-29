@@ -232,3 +232,9 @@ __marimo__/
 # Local training data and model artifacts
 /data/
 /output/
+
+# Local credentials and experiment configuration
+.env.*
+!.env.example
+/configs/local/
+/wandb/

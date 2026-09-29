@@ -53,19 +53,22 @@ def balanced_query_ids(tokenizer, parts, query_length):
         raise ValueError("balanced query truncation requires QueryParts for every query")
     if not parts:
         return []
+    limits = [query_length] * len(parts) if isinstance(query_length, int) else list(query_length)
+    if len(limits) != len(parts) or any(limit < 3 for limit in limits):
+        raise ValueError("One valid query budget is required per query")
     markers = tokenizer(["Instruction: ", "State: ", "\n"], add_special_tokens=False)["input_ids"]
     instruction_marker, context_marker, separator = markers
     texts = []
     for p in parts:
         texts.extend([f"{p.system}\n\n" if p.system.strip() else "", p.instruction, p.context])
-    encoded = tokenizer(texts, add_special_tokens=False, truncation=True, max_length=query_length)[
+    encoded = tokenizer(texts, add_special_tokens=False, truncation=True, max_length=max(limits))[
         "input_ids"
     ]
     result = []
     overhead = 2 + sum(map(len, markers))
     for i, p in enumerate(parts):
         system, instruction, context = encoded[3 * i : 3 * i + 3]
-        budget = query_length - overhead - len(system)
+        budget = limits[i] - overhead - len(system)
         if budget < 2:
             raise ValueError("System prompt and query markers leave fewer than two content tokens")
         ni, nc = allocate_query_budget(len(instruction), len(context), budget)

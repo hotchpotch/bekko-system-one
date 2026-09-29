@@ -13,6 +13,10 @@ require network access and a Hugging Face account authorized for both datasets.
 Training writes a self-contained Sentence Transformers model under the run's
 `model/` directory. It does not upload a model release automatically.
 
+For training on your own data, start with the [README](../README.md) and
+[training reference](training.md). These recipes require dataset access; they
+are not an anonymous-download quickstart.
+
 ## Setup
 
 Run commands from the repository root. Use a CUDA GPU and the pinned Linux /
