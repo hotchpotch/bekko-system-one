@@ -19,7 +19,7 @@ async (page) => {
 
     for (const task of ['noul', 'choice', 'score']) {
       await page.locator('#task').press('ArrowDown');
-      await page.getByRole('option', { name: {noul:'Yes / No',choice:'Choice',score:'Score'}[task], exact:true }).click();
+      await page.getByRole('option', { name: {noul:'Noul (Yes/No)',choice:'Choice',score:'Score'}[task], exact:true }).click();
       if (await page.locator('#request-json').isVisible()) throw Error('Request JSON should start collapsed');
       await page.locator('#run-example').click();
       await page.waitForFunction(() => !document.querySelector('#run').disabled, null, { timeout: 60000 });
@@ -36,7 +36,7 @@ async (page) => {
     await page.locator('#run').click();
     if (!(await page.locator('#result').textContent()).includes('different')) throw Error('Duplicate score values must be rejected');
     await page.locator('#task').press('ArrowDown');
-    await page.getByRole('option', {name:'Yes / No',exact:true}).click();
+    await page.getByRole('option', {name:'Noul (Yes/No)',exact:true}).click();
     await page.locator('#example').fill('Write your own');
     await page.getByRole('option', {name:'Write your own…',exact:true}).click();
     await page.locator('#instruction').fill('Is this a request for a refund?');

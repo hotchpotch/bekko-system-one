@@ -20,7 +20,7 @@ const defaults = {
   choice: "news-tennis-championship",
   score: "photosynthesis-complete",
 };
-const tasks = { noul: "Yes / No", choice: "Choice", score: "Score" };
+const tasks = { noul: "Noul (Yes/No)", choice: "Choice", score: "Score" };
 function initialForm(task, id = defaults[task]) {
   const item = examples.find((e) => e.id === id);
   const criteria = item?.criteria || [];

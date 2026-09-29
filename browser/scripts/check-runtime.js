@@ -18,7 +18,7 @@ async (page) => {
   }
   await gpu.click();
   const rows=[];
-  for(const task of ['Yes / No','Choice','Score']) {
+  for(const task of ['Noul (Yes/No)','Choice','Score']) {
     await select('task',task);
     const result=await run();
     if(!(await page.locator('.result-time').textContent()).includes('WebGPU')) throw Error('Wrong backend label');
