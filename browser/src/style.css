@@ -938,7 +938,7 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
   .model-panel { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
   .model-panel .model-selection { grid-column: 1 / -1; }
 }
-@media (max-width: 380px) {
+@media (max-width: 600px) {
   .model-panel { grid-template-columns: minmax(0, 1fr); }
   .model-panel > button, .model-panel > .loaded-badge { justify-self: start; }
 }
