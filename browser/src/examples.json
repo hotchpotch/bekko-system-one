@@ -21,14 +21,14 @@
     ]
   },
   {
-    "id": "email-invoice",
-    "title": "Keep a requested invoice",
+    "id": "email-prize",
+    "title": "Filter a fake prize announcement",
     "category": "Email triage",
     "task": "noul",
     "instruction": "Is this email unsolicited spam or bulk marketing?",
     "state": {
-      "subject": "Invoice for the equipment you ordered",
-      "body": "Hi Avery, attached is the invoice you requested during our call for the six monitors delivered to your office yesterday. It uses purchase order PO-7318 and the billing address your accounts team confirmed. The delivery charge is already included in the agreed total; there are no additional products to buy. Please forward the invoice to accounts payable when convenient. If the reference number needs correcting, reply to this thread and I will update the document."
+      "subject": "Your email address has won a prize",
+      "body": "Congratulations! Your email address was randomly selected in our international rewards program for a cash prize of $750,000. You do not need to have entered a competition or bought a ticket. Our finance department is ready to release the funds, but first you must reply with your bank account details and pay a small processing fee. Keep this award confidential and act today so that your prize is not reassigned to another winner."
     },
     "criteria": [
       {
@@ -216,7 +216,7 @@
     "task": "choice",
     "instruction": "Identify the banking intent expressed by the customer.",
     "state": {
-      "utterance": "I left my wallet in a taxi and my bank card was inside. I need to report the card as lost. I need to report the card as lost and prevent anyone who finds the wallet from using it."
+      "utterance": "I took a taxi home after dinner and only noticed later that my wallet was missing. My bank card was inside it. The taxi company has checked with the driver but has not found anything. I can still access mobile banking, and I have not seen an unfamiliar payment yet. I need to report the card as lost and prevent anyone who finds the wallet from using it."
     },
     "criteria": [
       {
@@ -324,7 +324,7 @@
     "task": "choice",
     "instruction": "Which support team should handle this customer request?",
     "state": {
-      "message": "My package was supposed to arrive yesterday. Can you send me the tracking link and tell me where it is? Could you send me a working tracking link and tell me where the package is now?"
+      "message": "I can sign in to my account normally and the payment for my order has gone through. The parcel was supposed to arrive yesterday, but nothing has been delivered and the order page only says shipped. I still want the items, so please do not cancel the order or issue a refund. Could you send me a working tracking link and tell me where the package is now?"
     },
     "criteria": [
       {
@@ -352,7 +352,7 @@
     "task": "choice",
     "instruction": "Which support team should handle this customer request?",
     "state": {
-      "message": "The service itself works, but I no longer need it because my project has ended. I am not asking for a refund for the month I already used. Please cancel my subscription, close my membership, and make sure the recurring payment is stopped before the next billing date."
+      "message": "I was able to reset my password last week, so I can access the account without any trouble. The service itself works, but I no longer need it because my project has ended. I am not asking for a refund for the month I already used. Please cancel my subscription, close my membership, and make sure the recurring payment is stopped before the next billing date."
     },
     "criteria": [
       {
@@ -398,6 +398,34 @@
       {
         "id": "fear",
         "description": "Fear"
+      }
+    ]
+  },
+  {
+    "id": "support-refund",
+    "title": "Route a refund request",
+    "category": "Customer support routing",
+    "task": "choice",
+    "instruction": "Which support team should handle this customer request?",
+    "state": {
+      "message": "The tracking page says my headphones were delivered yesterday, and I did receive the parcel. Unfortunately, the left speaker is broken and the plastic case is cracked. I do not need help finding the package, and I do not want a replacement because I have already bought another pair locally. Please return the purchase price to the card I used to pay. What information do you need to process my refund?"
+    },
+    "criteria": [
+      {
+        "id": "Password reset",
+        "description": "The user cannot sign in and needs to reset a forgotten password."
+      },
+      {
+        "id": "Refund request",
+        "description": "The user wants their money back for a purchase."
+      },
+      {
+        "id": "Delivery tracking",
+        "description": "The user wants to locate an order or check its delivery status."
+      },
+      {
+        "id": "Cancel subscription",
+        "description": "The user wants to stop a recurring subscription."
       }
     ]
   },
@@ -589,6 +617,158 @@
     "state": {
       "query": "How do I return a damaged item and get a refund?",
       "document": "You can change your display name and profile photo in Account settings. Open the Profile tab, enter the name you want other members to see, and select Save. This does not change the billing name on existing orders. To replace your photo, upload a JPG or PNG file and adjust the crop. Your updated profile appears immediately, although comments already sent by email retain the previous name."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "return-partial",
+    "title": "Return instructions without refund details",
+    "category": "Returns: answer completeness",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "How do I return a damaged item and get a refund?",
+      "document": "Open Order history, select the damaged item, and choose Request a return. Upload a clear photo of the damage and print the prepaid shipping label. Pack the item securely and take it to the carrier shown on the label. Keep the shipping receipt in case the parcel is delayed."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "return-background",
+    "title": "A returns policy without the return steps",
+    "category": "Returns: answer completeness",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "How do I return a damaged item and get a refund?",
+      "document": "Items damaged during shipping are covered by our customer protection policy. Keep the original packaging and take photographs of the damage as soon as possible. The support team may ask for these photographs when reviewing your case. The company handles damaged deliveries separately from changes of mind."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "science-partial",
+    "title": "An evaporation example without explaining the process",
+    "category": "Science: answer completeness",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is evaporation, and how do warmth and moving air affect its speed?",
+      "document": "A wet towel gradually dries when left on a washing line, and a puddle becomes smaller over time. Both are everyday examples of evaporation. The process is important in the water cycle and occurs in many places around us."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "science-main",
+    "title": "An explanation missing the effect of moving air",
+    "category": "Science: answer completeness",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is evaporation, and how do warmth and moving air affect its speed?",
+      "document": "Evaporation occurs when a liquid changes into gas at its surface. Water in a puddle can therefore enter the air as water vapor even below the boiling point. Higher temperatures generally make evaporation faster, so a warm towel tends to dry more quickly than a cold one under otherwise similar conditions."
     },
     "criteria": [
       {

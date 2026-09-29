@@ -20,8 +20,8 @@ const pretty = (value) => JSON.stringify(value, null, 2);
 const percent = (value) => `${(value * 100).toFixed(1)}%`;
 const defaults = {
   noul: "email-project-update",
-  choice: "support-password",
-  score: "travel-passport-full",
+  choice: "support-refund",
+  score: "return-partial",
 };
 const tasks = { noul: "Noul (Yes/No)", choice: "Choice", score: "Score" };
 function initialForm(task, id = defaults[task]) {
