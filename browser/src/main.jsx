@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { HardDriveDownload, ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, HardDriveDownload, ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
@@ -143,6 +143,7 @@ function Result({ output }) {
   );
 }
 function App() {
+  const [editorOpen, setEditorOpen] = useState(false);
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
   const model = MODELS.find((item) => item.value === modelId);
   function switchModel(next) {
@@ -204,6 +205,7 @@ function App() {
     clear();
   }
   function choose(task, id) {
+    if (id === "custom") setEditorOpen(true);
     setForm(initialForm(task, id));
     clear();
   }
@@ -431,7 +433,15 @@ function App() {
       <div className="workspace">
         <form
           id="form"
-          className="panel"
+          className={`panel ${editorOpen ? "editor-open" : "editor-closed"}`}
+          onInvalidCapture={(event) => {
+            if (!editorOpen && window.matchMedia("(max-width: 600px)").matches) {
+              event.preventDefault();
+              setEditorOpen(true);
+              const input = event.target;
+              requestAnimationFrame(() => { input.focus(); input.reportValidity(); });
+            }
+          }}
           onSubmit={(event) => {
             event.preventDefault();
             start();
@@ -483,133 +493,146 @@ function App() {
               {busy ? <LoaderCircle size={17} className="spin" aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}
               {busy ? "Working…" : "Run decision"}
             </Button>
-            <div className="form-toolbar">
-              <p className="hint">Edit any field to try your own input.</p>
-              <Button
-                secondary
-                type="button"
-                onClick={() => choose(form.task, form.id)}
-              >
-                <RotateCcw size={14} aria-hidden="true" /> Reset example
-              </Button>
-            </div>
-            <Textarea
-              id="instruction"
-              label="Question or instruction"
-              rows={2}
-              required
-              value={form.instruction}
-              onChange={(e) => change("instruction", e.target.value)}
-            />
-            <div className="label-row">
-              <div className="context-heading">
-                <h3>Context</h3>
-                <HelpTooltip id="context-help" label="Help with context fields">
-                  Each key names the value below it. Both are sent to the model.
-                  Use a unique, non-empty key.
-                </HelpTooltip>
+            <button
+              type="button"
+              className="editor-toggle"
+              aria-expanded={editorOpen}
+              aria-controls="decision-editor"
+              onClick={() => setEditorOpen(open => !open)}
+            >
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              <span>{editorOpen ? "Hide input details" : "View or edit input"}</span>
+              <ChevronDown size={16} aria-hidden="true" />
+            </button>
+            <div id="decision-editor">
+              <div className="form-toolbar">
+                <p className="hint">Edit any field to try your own input.</p>
+                <Button
+                  secondary
+                  type="button"
+                  onClick={() => choose(form.task, form.id)}
+                >
+                  <RotateCcw size={14} aria-hidden="true" /> Reset example
+                </Button>
               </div>
-              <span className="hint">The information to judge</span>
-            </div>
-            <div id="state-fields">
-              {form.context.map(([key, value], index) => {
-                const keyError = contextKeyError(form.context, index);
-                return (
-                  <div className="context-field" key={index}>
-                    <div className="context-key-row">
-                      <label htmlFor={`state-key-${index}`}>Key</label>
-                      <input
-                        id={`state-key-${index}`}
-                        aria-label={`Context key ${index + 1}`}
-                        aria-invalid={!!keyError}
-                        aria-describedby={keyError ? `state-key-error-${index}` : "context-help"}
-                        ref={(input) => input?.setCustomValidity(keyError)}
-                        value={key}
-                        required
-                        spellCheck={false}
-                        autoComplete="off"
+              <Textarea
+                id="instruction"
+                label="Question or instruction"
+                rows={2}
+                required
+                value={form.instruction}
+                onChange={(e) => change("instruction", e.target.value)}
+              />
+              <div className="label-row">
+                <div className="context-heading">
+                  <h3>Context</h3>
+                  <HelpTooltip id="context-help" label="Help with context fields">
+                    Each key names the value below it. Both are sent to the model.
+                    Use a unique, non-empty key.
+                  </HelpTooltip>
+                </div>
+                <span className="hint">The information to judge</span>
+              </div>
+              <div id="state-fields">
+                {form.context.map(([key, value], index) => {
+                  const keyError = contextKeyError(form.context, index);
+                  return (
+                    <div className="context-field" key={index}>
+                      <div className="context-key-row">
+                        <label htmlFor={`state-key-${index}`}>Key</label>
+                        <input
+                          id={`state-key-${index}`}
+                          aria-label={`Context key ${index + 1}`}
+                          aria-invalid={!!keyError}
+                          aria-describedby={keyError ? `state-key-error-${index}` : "context-help"}
+                          ref={(input) => input?.setCustomValidity(keyError)}
+                          value={key}
+                          required
+                          spellCheck={false}
+                          autoComplete="off"
+                          onChange={(e) => change("context", form.context.map((entry, i) =>
+                            i === index ? [e.target.value, entry[1]] : entry
+                          ))}
+                        />
+                      </div>
+                      {keyError && <p className="context-error" id={`state-key-error-${index}`} role="alert">{keyError}</p>}
+                      <Textarea
+                        id={`state-${index}`}
+                        data-key={key}
+                        aria-label={`Context value ${index + 1}${key ? ` (${key})` : ""}`}
+                        maxRows={10}
+                        value={value}
                         onChange={(e) => change("context", form.context.map((entry, i) =>
-                          i === index ? [e.target.value, entry[1]] : entry
+                          i === index ? [entry[0], e.target.value] : entry
                         ))}
                       />
                     </div>
-                    {keyError && <p className="context-error" id={`state-key-error-${index}`} role="alert">{keyError}</p>}
-                    <Textarea
-                      id={`state-${index}`}
-                      data-key={key}
-                      aria-label={`Context value ${index + 1}${key ? ` (${key})` : ""}`}
-                      maxRows={10}
-                      value={value}
-                      onChange={(e) => change("context", form.context.map((entry, i) =>
-                        i === index ? [entry[0], e.target.value] : entry
-                      ))}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <Button
-              id="add-context"
-              secondary
-              type="button"
-              onClick={() => {
-                let number = form.context.length + 1;
-                while (form.context.some(([key]) => key === `field_${number}`)) number++;
-                const index = form.context.length;
-                change("context", [...form.context, [`field_${number}`, ""]]);
-                requestAnimationFrame(() => {
-                  const input = document.getElementById(`state-key-${index}`);
-                  input?.focus();
-                  input?.select();
-                });
-              }}
-            >
-              <Plus size={15} aria-hidden="true" /> Add context field
-            </Button>
-            {form.task === "noul" ? (
-              <div id="binary-fields">
-                <div className="binary-meanings">
-                  <div className="context-field meaning-field">
-                    <Textarea
-                      id="yes"
-                      label="Yes means"
-                      help="Describe the condition that counts as Yes. Define the opposite under No means; these descriptions are included in the model input."
-                      rows={2}
-                      required
-                      value={form.yes}
-                      onChange={(e) => change("yes", e.target.value)}
-                    />
-                  </div>
-                  <div className="context-field meaning-field">
-                    <Textarea
-                      id="no"
-                      label="No means"
-                      rows={2}
-                      required
-                      value={form.no}
-                      onChange={(e) => change("no", e.target.value)}
-                    />
+                  );
+                })}
+              </div>
+              <Button
+                id="add-context"
+                secondary
+                type="button"
+                onClick={() => {
+                  let number = form.context.length + 1;
+                  while (form.context.some(([key]) => key === `field_${number}`)) number++;
+                  const index = form.context.length;
+                  change("context", [...form.context, [`field_${number}`, ""]]);
+                  requestAnimationFrame(() => {
+                    const input = document.getElementById(`state-key-${index}`);
+                    input?.focus();
+                    input?.select();
+                  });
+                }}
+              >
+                <Plus size={15} aria-hidden="true" /> Add context field
+              </Button>
+              {form.task === "noul" ? (
+                <div id="binary-fields">
+                  <div className="binary-meanings">
+                    <div className="context-field meaning-field">
+                      <Textarea
+                        id="yes"
+                        label="Yes means"
+                        help="Describe the condition that counts as Yes. Define the opposite under No means; these descriptions are included in the model input."
+                        rows={2}
+                        required
+                        value={form.yes}
+                        onChange={(e) => change("yes", e.target.value)}
+                      />
+                    </div>
+                    <div className="context-field meaning-field">
+                      <Textarea
+                        id="no"
+                        label="No means"
+                        rows={2}
+                        required
+                        value={form.no}
+                        onChange={(e) => change("no", e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div id="option-fields">
-                <Textarea
-                  id="options"
-                  label={form.task === "score" ? "Score levels" : "Options"}
-                  rows={7}
-                  required
-                  spellCheck={false}
-                  value={form.options}
-                  onChange={(e) => change("options", e.target.value)}
-                  help={
-                    form.task === "score"
-                      ? "One level per line: number | meaning, such as 0 | Not relevant. Use distinct numbers and describe each level. Results keep your input order; scores can fall between levels."
-                      : "One option per line: a unique name, or name | description. For example, refund | The customer wants their money back. Results keep your input order."
-                  }
-                />
-              </div>
-            )}
+              ) : (
+                <div id="option-fields">
+                  <Textarea
+                    id="options"
+                    label={form.task === "score" ? "Score levels" : "Options"}
+                    rows={7}
+                    required
+                    spellCheck={false}
+                    value={form.options}
+                    onChange={(e) => change("options", e.target.value)}
+                    help={
+                      form.task === "score"
+                        ? "One level per line: number | meaning, such as 0 | Not relevant. Use distinct numbers and describe each level. Results keep your input order; scores can fall between levels."
+                        : "One option per line: a unique name, or name | description. For example, refund | The customer wants their money back. Results keep your input order."
+                    }
+                  />
+                </div>
+              )}
+            </div>
           </fieldset>
           <Button id="run" type="submit" disabled={busy}>
             {busy ? (
