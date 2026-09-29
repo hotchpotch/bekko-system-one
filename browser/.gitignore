@@ -5,3 +5,7 @@ public/model/*
 __pycache__/
 .playwright-cli/
 export/
+
+.env
+.env.*
+!.env.example

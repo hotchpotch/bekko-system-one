@@ -1,4 +1,4 @@
-// Open the preview, then run with playwright-cli. Downloads both public models.
+// Open the development server, then run with playwright-cli. Downloads the configured 17M and 68M models.
 async (page) => {
   await page.reload();
   await page.getByRole("radio", {name:"CPU", exact:true}).click();

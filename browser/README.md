@@ -14,8 +14,21 @@ Requires Node.js 22 or later. From this directory:
 
 ```sh
 npm ci
+cp .env.example .env.local
+# Set HF_TOKEN in .env.local to a token with read access to the model repositories.
 npm run dev
 ```
+
+Alternatively, supply `HF_TOKEN` through your shell environment at startup. Do not
+use a `VITE_` prefix: the token is server-side only. `.env.local` is Git-ignored.
+Restart Vite after changing it.
+
+The local development server streams the four permitted model assets through a
+same-origin `/__hf_models/` endpoint. It authenticates to Hugging Face without
+exposing the token to browser JavaScript or forwarding it to CDN redirects. This
+is a download proxy, not an inference server; input text stays in the browser.
+Only expose this local server to trusted users, since they can download the models
+using its access.
 
 Open the URL printed by Vite. The development server binds to localhost.
 Select a model and a decision type, then choose an example and click **Run
@@ -29,13 +42,21 @@ npm run build
 npm run preview
 ```
 
-Deploy the contents of `dist/` to a static host. Serve the app over HTTP(S), not
+The authenticated model proxy runs only in the development server, not in
+`npm run preview` or `dist/`. Static hosting requires publicly accessible models.
+Deploy the contents of `dist/` to a static host once that requirement is met. Serve the app over HTTP(S), not
 `file://`. No Python service or inference server is required.
 
 ## Models and downloads
 
-The demo currently uses models from
-[hotchpotch/tmp-BS1-onnx](https://huggingface.co/hotchpotch/tmp-BS1-onnx).
+The demo uses the `onnx_browser/` exports in the release repositories:
+
+- [17M](https://huggingface.co/hotchpotch/bekko-system-one-v0-17m)
+- [68M](https://huggingface.co/hotchpotch/bekko-system-one-v0-68m)
+- [400M](https://huggingface.co/hotchpotch/bekko-system-one-v0-400m)
+
+These repositories currently require authenticated access. Use the local development
+server with `HF_TOKEN` while they are private.
 [`src/models.js`](src/models.js) defines the model URLs and pins a specific Hub
 revision so deployments use a consistent set of files.
 
@@ -43,17 +64,17 @@ revision so deployments use a consistent set of files.
 | --- | ---: | --- |
 | Bekko-s1-v0-17M | 29.0 MB | Available |
 | Bekko-s1-v0-68M | 196.3 MB | Available |
-| Bekko-s1-v0-400M | — | Not available in the demo |
+| Bekko-s1-v0-400M | 1,426.2 MB | Available; requires substantial memory |
 
 Sizes are decimal MB for the ONNX file alone. Tokenizer files and the inference
-runtime are additional downloads. Both available models use **INT8 token
+runtime are additional downloads. All three models use **INT8 token
 embeddings; Transformer blocks and prediction heads remain FP32**. The tokenizer
 is not quantized.
 
 Each model directory contains:
 
 ```text
-model_int8.onnx
+model.onnx
 manifest.json
 tokenizer.json
 tokenizer_config.json
@@ -67,7 +88,8 @@ The app also downloads the ONNX Runtime WASM binary from jsDelivr at the exact
 pinned `onnxruntime-web` version. The runtime module is bundled into the worker;
 the WASM download needs no authentication, including when the app is hosted in a
 private Space. Initial use requires network access to both Hugging Face and
-jsDelivr. Downloads use normal browser HTTP caching; offline availability is not
+jsDelivr. Runtime downloads use normal browser HTTP caching. The authenticated local model
+proxy returns `Cache-Control: private, no-store`; offline availability is not
 guaranteed.
 
 ## CPU and WebGPU
@@ -239,6 +261,7 @@ node --test \
   test/context.test.js \
   test/decision.test.js \
   test/download.test.js \
+  test/hf-model-proxy.test.js \
   test/inference-time.test.js \
   test/runtime-assets.test.js \
   test/runtime.test.js
@@ -250,7 +273,7 @@ npm run build
 `public/model/quantized/embedding-int8/`, generated from the same checkpoint.
 For an export elsewhere, use `scripts/verify-export.js` with its directory.
 
-For UI checks, start the built preview with `npm run preview`, open its URL using
+For UI checks with private models, start `npm run dev` with `HF_TOKEN`, open its URL using
 Playwright CLI, and run:
 
 ```sh
@@ -260,13 +283,19 @@ playwright-cli run-code --filename=scripts/check-runtime.js
 playwright-cli run-code --filename=scripts/check-hub-models.js
 ```
 
-These checks download the configured public models and cover forms, model reuse,
+These checks download the configured models through the development server and cover forms, model reuse,
 error recovery, and backend selection. `check-runtime.js` compares CPU and WebGPU
 results when an adapter is available, and explicitly reports when it is not.
-`check-hub-models.js` exercises all three decision types on both available models
+`check-hub-models.js` exercises all three decision types on the 17M and 68M models
 using CPU. WebGPU validation should also be performed on the intended hardware.
 
 ## Deploy to a private Hugging Face Space
+
+The authenticated model-download proxy is available only through `npm run dev`.
+A static build uses direct Hub URLs and contains no token. It cannot load these
+private models as configured. Do not deploy this configuration until the model
+repositories are publicly accessible or a separate authenticated download service
+is provided. Never embed `HF_TOKEN` in a static build.
 
 Export a ready-to-upload static directory:
 
@@ -293,8 +322,9 @@ Previously uploaded assets are retained so existing browser sessions can finish
 using their original build.
 
 The Space serves static assets; inference still runs in the visitor's browser.
-Models are downloaded directly from the pinned public Hub revision. A private
-Space does not make that model repository private. Deployment credentials belong
+After the models are publicly accessible, static deployments download them
+directly from the pinned Hub revisions. Space visibility and model repository
+visibility are independent. Deployment credentials belong
 in the CLI environment, never in frontend files.
 
 ## References

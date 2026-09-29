@@ -27,7 +27,7 @@ async function load(base, device) {
     if (!support.available) throw Error(support.reason);
   }
   const asset = (name) =>
-    download(new URL(name, base).href, (progress) =>
+    download(new URL(name, new URL(base, self.location.origin)).href, (progress) =>
       self.postMessage({ progress: { file: name, ...progress } }),
     );
   const json = async (name) =>

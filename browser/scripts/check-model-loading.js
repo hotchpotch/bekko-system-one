@@ -1,4 +1,4 @@
-// Open the preview, then run with playwright-cli run-code --filename=scripts/check-model-loading.js
+// Open the development server, then run with playwright-cli run-code --filename=scripts/check-model-loading.js
 async (page) => {
   const context = page.context();
   let attempts = 0;
@@ -11,7 +11,7 @@ async (page) => {
       await request.continue();
     }
   };
-  await context.route("**/model_int8.onnx", route);
+  await context.route("**/model.onnx", route);
   try {
     await page.reload();
     await page.locator("#load-model").click();
@@ -52,6 +52,6 @@ async (page) => {
       throw Error("Reset must restore example");
     return { attempts, preloadAndRetry: true, reset: true };
   } finally {
-    await context.unroute("**/model_int8.onnx", route);
+    await context.unroute("**/model.onnx", route);
   }
 }
