@@ -14,10 +14,10 @@ test('inference time sums awaited model runs and excludes tokenization and tenso
     tokenizer: { encode() { clock += 100; return { ids: [1] }; } },
     manifest: { tasks: ['choice'], query_length: 64, document_length: 16, cls_token_id: 1, sep_token_id: 2, pad_token_id: 0 },
     ort: { Tensor: class { constructor() { clock += 50; } } },
-    session: { async run() { await Promise.resolve(); clock += 7; runs++; return { logits: { data: [runs] } }; } },
+    session: { async run() { await Promise.resolve(); clock += 7; runs++; return { logits: { data: [0, 1], dims: [2, 1] } }; } },
   }, { onInferenceTime: elapsed => { measured = elapsed; } });
-  assert.equal(runs, 2);
-  assert.equal(measured, 14);
+  assert.equal(runs, 1);
+  assert.equal(measured, 7);
   assert.ok(clock > measured);
   assert.equal(result.selected_id, 'b');
 });

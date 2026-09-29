@@ -65,17 +65,28 @@ export function interpret(request, logits) {
 
 export async function predict(request, { tokenizer, manifest, session, ort }, { onInferenceTime } = {}) {
   const tokens = tokenize(request, tokenizer, manifest);
-  // Run candidates sequentially to bound attention memory even with long prefixes.
   const column = manifest.tasks.indexOf(request.task);
   if (column < 0) throw Error('Task is absent from this model');
+  // Share prefix K/V across candidates in each run. Bound candidate attention
+  // growth for long inputs; this is a batching heuristic, not a total RAM limit.
+  const documentLength = Math.max(...tokens.doc_ids.map(doc => doc.length));
+  const attentionPairs = documentLength * (tokens.prefix_ids[0].length + documentLength);
+  const batchSize = Math.max(1, Math.floor(1_048_576 / attentionPairs));
   const logits = [];
   let inferenceMilliseconds = 0;
-  for (const doc of tokens.doc_ids) {
-    const feeds = feedsFor({ prefix_ids: tokens.prefix_ids, doc_ids: [doc] }, ort, manifest);
+  for (let offset = 0; offset < tokens.doc_ids.length; offset += batchSize) {
+    const documents = tokens.doc_ids.slice(offset, offset + batchSize);
+    const feeds = feedsFor({ prefix_ids: tokens.prefix_ids, doc_ids: documents }, ort, manifest);
     const start = performance.now();
     const result = await session.run(feeds);
     inferenceMilliseconds += performance.now() - start;
-    logits.push(Number(result.logits.data[column]));
+    const output = result.logits;
+    if (output.dims.length !== 2 || output.dims[0] !== documents.length || output.dims[1] !== manifest.tasks.length) {
+      throw Error('Invalid model logits shape');
+    }
+    for (let row = 0; row < documents.length; row++) {
+      logits.push(Number(output.data[row * manifest.tasks.length + column]));
+    }
   }
   onInferenceTime?.(inferenceMilliseconds);
   return interpret(request, logits);

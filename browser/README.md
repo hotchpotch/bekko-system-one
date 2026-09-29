@@ -57,7 +57,9 @@ and a usable GPU adapter. The interface explains when it is unavailable.
 Unsupported GPU operations can use CPU assistance. If WebGPU fails, select CPU
 and retry. Speed depends on your device and input length.
 
-The runtime uses a Web Worker and scores candidates sequentially. Query and
+The runtime uses a Web Worker and batches candidates to share prefix computation
+within each model run. Long inputs use smaller batches to limit candidate attention
+growth. Prefix state is not retained between decisions. Query and
 candidate limits are read from the model manifest; long inputs are truncated.
 Short inputs are best for interactive use.
 
