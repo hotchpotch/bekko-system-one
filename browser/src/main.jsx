@@ -462,23 +462,29 @@ function App() {
               <h2>Set up a decision</h2>
             </div>
             <div className="decision-pickers">
-              <Picker
-                id="task"
-                label="1. Decision type"
-                help={{
+              <fieldset id="task" className="task-radios" aria-describedby="task-help">
+                <legend>
+                  <span className="runtime-heading">
+                    1. Decision type
+                    <HelpTooltip id="task-help" label="Help with decision types">
+                      {{
                   noul: "Noul checks a condition and returns Yes/No probabilities. Use Yes means and No means to define what each answer represents.",
                   choice: "Choice selects one of your options. Write distinct alternatives and describe them if their names alone are unclear.",
                   score: "Score rates the context against numeric levels. The result is a probability-weighted average, so it can fall between levels.",
-                }[form.task]}
-                value={form.task}
-                disabled={busy}
-                searchable={false}
-                options={Object.entries(tasks).map(([value, label]) => ({
-                  value,
-                  label,
-                }))}
-                onChange={(task) => choose(task)}
-              />
+                      }[form.task]}
+                    </HelpTooltip>
+                  </span>
+                </legend>
+                <div className="task-options">
+                  {Object.entries(tasks).map(([value, label]) => (
+                    <label key={value} className={`task-option ${form.task === value ? "selected" : ""}`}>
+                      <input type="radio" name="task" value={value} checked={form.task === value}
+                        disabled={busy} onChange={() => choose(value)} />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <Picker
                 id="example"
                 label="2. Choose an example"

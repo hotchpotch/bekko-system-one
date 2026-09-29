@@ -1,5 +1,6 @@
 // Open the development server, then: playwright-cli run-code --filename=scripts/check-browser.js
 async (page) => {
+  await page.setViewportSize({ width: 1280, height: 1000 });
   await page.reload();
   const modelRequests = [];
   const track = request => { if (request.url().endsWith('/model.onnx')) modelRequests.push(request.url()); };
@@ -13,13 +14,12 @@ async (page) => {
       if (await page.getByRole('option', {name, exact:true}).getAttribute('aria-disabled') === 'true') throw Error('Release models must be selectable');
     }
     await page.locator('#model').press('Escape');
-    const left = await page.locator('.decision-pickers .picker').first().boundingBox();
-    const right = await page.locator('.decision-pickers .picker').last().boundingBox();
-    if (left.y !== right.y || left.x >= right.x) throw Error('Decision and example must be side by side');
+    const taskBox = await page.locator('#task').boundingBox();
+    const exampleBox = await page.locator('.decision-pickers .picker').boundingBox();
+    if (exampleBox.y < taskBox.y + taskBox.height) throw Error('Example must be below decision type');
 
     for (const task of ['noul', 'choice', 'score']) {
-      await page.locator('#task').press('ArrowDown');
-      await page.getByRole('option', { name: {noul:'Noul (Yes/No)',choice:'Choice',score:'Score'}[task], exact:true }).click();
+      await page.getByRole('radio', { name: {noul:'Noul (Yes/No)',choice:'Choice',score:'Score'}[task], exact:true }).check();
       if (await page.locator('#request-json').isVisible()) throw Error('Input JSON should start collapsed');
       await page.locator('#run-example').click();
       await page.waitForFunction(() => !document.querySelector('#run').disabled, null, { timeout: 60000 });
@@ -35,8 +35,7 @@ async (page) => {
     await page.locator('#options').fill('0 | First\n0 | Duplicate');
     await page.locator('#run').click();
     if (!(await page.locator('#result').textContent()).includes('different')) throw Error('Duplicate score values must be rejected');
-    await page.locator('#task').press('ArrowDown');
-    await page.getByRole('option', {name:'Noul (Yes/No)',exact:true}).click();
+    await page.getByRole('radio', {name:'Noul (Yes/No)',exact:true}).check();
     await page.locator('#example').fill('Write your own');
     await page.getByRole('option', {name:'Write your own…',exact:true}).click();
     await page.locator('#instruction').fill('Is this a request for a refund?');

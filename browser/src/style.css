@@ -479,7 +479,7 @@ progress {
 /* Example-first controls. */
 .decision-pickers {
   display: grid;
-  grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1.5fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .picker {
@@ -572,7 +572,7 @@ button {
 }
 @media (max-width: 460px) {
   .decision-pickers {
-    grid-template-columns: minmax(95px, 0.7fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .binary-meanings {
@@ -889,7 +889,6 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
   button, .track .fill, .resource-links .resource-badge { transition: none; }
 }
 @media (max-width: 600px) {
-  .decision-pickers { grid-template-columns: minmax(135px, .9fr) minmax(0, 1.1fr); }
   .resource-links { gap: 6px; }
   .resource-links .resource-badge { font-size: 11px; padding: 6px 8px; gap: 5px; }
   .coming-soon { font-size: 9px; }
@@ -978,3 +977,15 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 }
 
 .result-panel { scroll-margin-top: 16px; }
+
+.task-radios { min-width: 0; }
+.task-radios legend { padding: 0; margin: 6px 0; font-size: 13px; font-weight: 650; }
+.task-options { display: flex; gap: 6px; }
+.task-option { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1; margin: 0; padding: 9px 6px; border: 1px solid #ccd7c8; border-radius: 7px; background: #fff; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.task-option.selected { background: #eaf0e4; border-color: #368357; color: #235d40; }
+.task-option input { width: 14px; height: 14px; margin: 0; accent-color: #235d40; }
+.task-option:focus-within { outline: 2px solid #90b598; outline-offset: 2px; }
+.task-option:has(input:disabled) { opacity: .55; cursor: wait; }
+@media (max-width: 380px) {
+  .task-option { font-size: 11px; gap: 4px; padding: 9px 4px; }
+}
