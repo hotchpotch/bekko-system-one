@@ -594,11 +594,11 @@ function App() {
             )}
           </div>
           <details className="developer">
-            <summary>Request JSON</summary>
+            <summary>Input JSON</summary>
             <pre id="request-json">
               {request
                 ? pretty(request)
-                : "Run a decision to inspect its request."}
+                : "Run a decision to inspect its input."}
             </pre>
             <details>
               <summary>Rendered model input</summary>
@@ -608,13 +608,13 @@ function App() {
             </details>
           </details>
           <details className="developer">
-            <summary>Response JSON</summary>
+            <summary>Output JSON</summary>
             <pre id="response-json">
               {error
                 ? pretty({ error })
                 : output
                   ? pretty(output.result)
-                  : "Run a decision to inspect its response."}
+                  : "Run a decision to inspect its output."}
             </pre>
           </details>
         </aside>
