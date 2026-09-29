@@ -143,6 +143,7 @@ function Result({ output }) {
   );
 }
 function App() {
+  const resultPanel = useRef(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
   const model = MODELS.find((item) => item.value === modelId);
@@ -296,6 +297,14 @@ function App() {
       });
     } catch (e) {
       fail(e.message);
+    }
+    if (!loadOnly && window.matchMedia("(max-width: 600px)").matches) {
+      requestAnimationFrame(() => {
+        resultPanel.current?.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+          block: "start",
+        });
+      });
     }
   }
   const groups = [
@@ -649,7 +658,7 @@ function App() {
             {status}
           </p>
         </form>
-        <aside className="panel result-panel">
+        <aside ref={resultPanel} className="panel result-panel">
           <div className="section-title">
             <span className="step"><ChartNoAxesColumnIncreasing size={18} aria-hidden="true" /></span>
             <h2>Your result</h2>

@@ -975,3 +975,5 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
   .editor-open .editor-toggle > svg:last-child { transform: rotate(180deg); }
   .editor-closed #decision-editor, .editor-closed #run { display: none; }
 }
+
+.result-panel { scroll-margin-top: 16px; }
