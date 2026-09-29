@@ -9,7 +9,7 @@ async (page) => {
     if (await page.locator('#system').count()) throw Error('System prompt must not be in the UI');
     if (!await page.locator('#yes').isVisible() || !await page.locator('#no').isVisible()) throw Error('Yes/No meanings must be visible');
     await page.locator('#model').press('ArrowDown');
-    for (const name of ['Bekko-s1-v0-400M (size 1426 MB)']) {
+    for (const name of ['bekko-s1-v1-400m (1.4 GB download)']) {
       if (await page.getByRole('option', {name, exact:true}).getAttribute('aria-disabled') === 'true') throw Error('Release models must be selectable');
     }
     await page.locator('#model').press('Escape');

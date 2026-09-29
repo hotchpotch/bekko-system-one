@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
+import { HardDriveDownload, ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
@@ -345,6 +345,17 @@ function App() {
                 ? status
                 : "Not loaded yet. Your first run loads the model automatically."}
           </p>
+          {model.bytes >= 1e9 && (
+            <div className="large-model-notice">
+              <HardDriveDownload size={18} aria-hidden="true" />
+              <div>
+                <strong>Large model · 1.4 GB download</strong>
+                <p>{loadedBytes === null
+                  ? "Loading or running this model downloads about 1.4 GB. It also needs substantial memory. Try 17m or 68m for a lighter download."
+                  : "This model uses substantial memory. Switching models or reloading the page may require another 1.4 GB download."}</p>
+              </div>
+            </div>
+          )}
         </div>
         <div className="runtime-selection">
           <fieldset

@@ -920,3 +920,8 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
   .activity-halo, .activity-wave span, .activity-dots span, .activity-sweep span { animation: none; }
   .activity-sweep span { left: 28%; }
 }
+
+.large-model-notice { display: flex; align-items: flex-start; gap: 9px; margin-top: 10px; padding: 10px 12px; border: 1px solid #dfd4aa; border-radius: 8px; background: #faf7ea; color: #6c5a23; max-width: 440px; }
+.large-model-notice > .lucide { margin-top: 2px; }
+.large-model-notice strong { font-size: 12px; }
+.model-panel .large-model-notice p { font-size: 11px; line-height: 1.55; margin: 4px 0 0; color: #76673e; }
