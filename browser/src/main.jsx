@@ -306,7 +306,7 @@ function App() {
       <header className="hero">
         <div className="hero-copy">
           <div className="brand-wordmark">bekko-system-one</div>
-          <h1>An ultra-small System One model <span>in your browser.</span></h1>
+          <h1>Ultra-small models.<br /><span>Decisions in your browser.</span></h1>
           <p className="intro">
             Check a condition, choose an option, or score an answer. All on your device.
           </p>

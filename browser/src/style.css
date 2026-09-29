@@ -947,13 +947,14 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
 header.hero { display: block; padding: 0; margin-bottom: 18px; }
 .brand-wordmark { display: flex; align-items: baseline; gap: 14px; font-size: 22px; font-weight: 800; letter-spacing: -.045em; color: #235d40; }
 .brand-wordmark > span { font-size: 13px; font-weight: 500; letter-spacing: .015em; color: #6b7b6b; }
-.hero h1 { margin: 12px 0 10px; max-width: none; font-size: clamp(28px, 3vw, 36px); line-height: 1.18; letter-spacing: -.045em; text-wrap: initial; }
+.hero h1 { margin: 12px 0 10px; max-width: none; font-size: clamp(32px, 4.4vw, 48px); line-height: 1.12; letter-spacing: -.045em; text-wrap: initial; }
 .hero h1 > span { color: #48694e; }
 .hero .intro { font-size: 14px; line-height: 1.6; color: #617362; }
-.hero-resources { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; margin-top: 18px; padding: 12px 0; border-top: 1px solid #dce4d6; }
-.hero .model-links { margin: 0; gap: 8px; }
-.hero .resource-badge { font-size: 12px; padding: 8px 11px; font-weight: 600; background: #ffffffb3; }
-.project-links { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.hero-resources { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-top: 16px; padding: 10px 0; border-top: 1px solid #dce4d6; }
+.hero .model-links { margin: 0; gap: 6px; }
+.hero .resource-badge { font-size: 11px; padding: 5px 8px; gap: 5px; border-radius: 6px; font-weight: 600; background: #ffffffb3; }
+.hero .resource-badge .lucide { width: 12px; height: 12px; }
+.project-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .project-link { display: inline-flex; align-items: center; gap: 6px; color: #6a7869; font-size: 11px; }
 .project-link .coming-soon { padding: 1px 4px; font-size: 9px; background: #e9eee3; color: #768171; }
 @media (max-width: 600px) {
@@ -962,6 +963,6 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
   .hero h1 { font-size: clamp(26px, 6.8vw, 32px); margin: 10px 0; }
   .hero .intro { font-size: 14px; }
   .hero-break { display: none; }
-  .hero-resources { margin-top: 16px; padding: 12px 0; gap: 12px; }
-  .hero .resource-badge { padding: 7px 9px; font-size: 11px; }
+  .hero-resources { margin-top: 14px; padding: 10px 0; gap: 10px; }
+  .hero .resource-badge { padding: 5px 8px; font-size: 11px; }
 }
