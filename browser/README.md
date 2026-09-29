@@ -1,10 +1,14 @@
-# Bekko browser inference
+# Bekko System One in the browser
 
-A React interface for running Choice, Noul (yes/no), and Score locally with
-ONNX Runtime. Select a model, choose an example, and run it. Inputs stay on your
-device; model files are downloaded from the public Hugging Face Hub.
+Run Noul (yes/no), Choice, and Score decisions locally with a React interface and
+ONNX Runtime. Choose a model, load an example, and edit the inputs to try your own
+use case. Inference runs on your device; input text is not sent to an inference
+server.
 
-## Run
+This directory also provides a Node.js CPU API, checkpoint export tools, and a
+static-site deployment script.
+
+## Quick start
 
 Requires Node.js 22 or later. From this directory:
 
@@ -13,107 +17,164 @@ npm ci
 npm run dev
 ```
 
-The default server binds to localhost. Build a static site with:
+Open the URL printed by Vite. The development server binds to localhost.
+Select a model and a decision type, then choose an example and click **Run
+decision**. The model loads automatically on the first run; **Load Model** lets
+you load it in advance.
+
+To build and preview the static app:
 
 ```sh
 npm run build
 npm run preview
 ```
 
-Serve all of `dist/` over HTTP(S), not `file://`. No inference server is needed.
-Model weights are fetched on demand, not included in the static build.
-The ONNX Runtime WASM binary is fetched from jsDelivr at the exact pinned
-`onnxruntime-web` version, without authentication. This also works when the
-static app is hosted in a private Space. The first
-run needs network access to Hugging Face; subsequent requests depend on normal
-browser HTTP caching. The current page reuses its loaded inference session.
+Deploy the contents of `dist/` to a static host. Serve the app over HTTP(S), not
+`file://`. No Python service or inference server is required.
 
-## Models
+## Models and downloads
 
-Models are hosted in [hotchpotch/tmp-BS1-onnx](https://huggingface.co/hotchpotch/tmp-BS1-onnx).
-`src/models.js` defines the available models and pins the Hub revision.
+The demo currently uses models from
+[hotchpotch/tmp-BS1-onnx](https://huggingface.co/hotchpotch/tmp-BS1-onnx).
+[`src/models.js`](src/models.js) defines the model URLs and pins a specific Hub
+revision so deployments use a consistent set of files.
 
-| Model | ONNX download | Availability |
+| Model | ONNX file size | Status |
 | --- | ---: | --- |
-| 17M | 29.0 MB | Available |
-| 68M | 196.3 MB | Available |
-| 400M | — | Coming soon |
+| Bekko s1 v0 17M | 29.0 MB | Available |
+| Bekko s1 v0 68M | 196.3 MB | Available |
+| Bekko s1 v0 400M | — | Not available in the demo |
 
-Both available models use INT8 token embeddings and FP32 Transformer blocks and
-heads. Each directory contains `model_int8.onnx`, `manifest.json`,
-`tokenizer.json`, and `tokenizer_config.json`. The manifest identifies the model
-file, hashes, quantization policy, task heads, and token budgets.
+Sizes are decimal MB for the ONNX file alone. Tokenizer files and the inference
+runtime are additional downloads. Both available models use **INT8 token
+embeddings; Transformer blocks and prediction heads remain FP32**. The tokenizer
+is not quantized.
 
-Use **Load model** to preload, or run an example to load automatically.
-A compact progress bar shows received bytes; initialization is displayed separately.
-Switching model or execution device releases the current worker and loads the
-new session on the next run. Failed downloads can be retried.
+Each model directory contains:
 
-## Inference device
+```text
+model_int8.onnx
+manifest.json
+tokenizer.json
+tokenizer_config.json
+```
 
-Choose **CPU** or **WebGPU**. WebGPU is selected initially when an adapter is
-available; otherwise CPU is selected. WebGPU requires HTTPS or localhost
-and a usable GPU adapter. The interface explains when it is unavailable.
-Unsupported GPU operations can use CPU assistance. If WebGPU fails, select CPU
-and retry. Speed depends on your device and input length.
+The manifest specifies the model filename, hashes, quantization policy, task-head
+order, and token budgets. Model files are fetched on demand and are not bundled
+into `dist/`.
 
-The runtime uses a Web Worker and batches candidates to share prefix computation
-within each model run. Long inputs use smaller batches to limit candidate attention
-growth. Prefix state is not retained between decisions. Query and
-candidate limits are read from the model manifest; long inputs are truncated.
-Short inputs are best for interactive use.
+The app also downloads the ONNX Runtime WASM binary from jsDelivr at the exact
+pinned `onnxruntime-web` version. The runtime module is bundled into the worker;
+the WASM download needs no authentication, including when the app is hosted in a
+private Space. Initial use requires network access to both Hugging Face and
+jsDelivr. Downloads use normal browser HTTP caching; offline availability is not
+guaranteed.
+
+## CPU and WebGPU
+
+The browser offers two execution devices:
+
+- **CPU:** ONNX Runtime Web's WASM backend, using one thread.
+- **WebGPU:** GPU execution with CPU assistance for unsupported operations.
+  Requires HTTPS or localhost and a usable WebGPU adapter.
+
+WebGPU is selected initially when an adapter is available. Otherwise, the app
+selects CPU. Adapter availability does not guarantee that every model or input
+will fit on a device. If WebGPU fails, select CPU and retry. Performance depends
+on the device, model, input lengths, and candidate count.
+
+Inference runs in a Web Worker. The page reuses its loaded session for subsequent
+decisions. Switching model or execution device discards the current worker; the
+next load or run creates a new session.
+
+## Shared-prefix inference
+
+The instruction and context form a common **prefix**. Each candidate is a
+separate branch that attends to this prefix. The exported ONNX model preserves
+that structure: it computes the prefix's keys and values at each Transformer
+layer, then shares them across the candidate branches.
+
+The runtime passes candidates together in a batch instead of running the entire
+model separately for each candidate. For example, five short Score levels can
+share one prefix computation in one `session.run()` call. This avoids computing
+the same instruction and context five times and reduces runtime-call overhead.
+The browser and Node API use the same batching logic.
+
+This optimization uses the existing **single ONNX file**. It requires no extra
+weights, increases neither model size nor download size, and applies to Noul,
+Choice, and Score on both CPU and WebGPU. Candidates remain independent: they
+attend to the shared prefix, not to each other. Small floating-point differences
+from sequential execution are possible.
+
+Long inputs are divided into smaller candidate batches to limit attention growth.
+The batch size is based on the prefix length and the longest padded candidate,
+with a budget of 1,048,576 candidate attention pairs:
+
+```text
+candidates per batch × candidate length × (prefix length + candidate length)
+```
+
+At least one candidate is processed per run. This is a batching heuristic, not a
+guaranteed limit on total memory: model weights, prefix attention, and runtime
+buffers also consume memory. The prefix is recomputed for each batch. Candidate
+logits are collected in their original order, and probabilities are calculated
+across all candidates after every batch finishes.
+
+Prefix keys and values are shared **within a model run**, not cached between
+separate decisions. Repeating a decision reuses the loaded model but recomputes
+the prefix. Longer prefixes and more candidates offer more opportunity to save
+work; a fixed speedup is not guaranteed.
+
+The UI's **Inference** time measures time spent awaiting `session.run()`, summed
+across batches. It excludes model downloads, initialization, tokenization, input
+tensor preparation, and result rendering.
 
 ## Inputs and results
 
-Choose a decision type on the left and search for an example on the right.
-Examples are editable. **Reset example** restores its inputs. Run buttons are
-available above and below the input fields.
+Choose a decision type on the left and an example on the right. Examples are
+editable; **Reset example** restores the selected example's inputs.
 
-- **Yes / No:** edit the meanings of both answers directly in the form.
-- **Choice:** enter one option per line, as a name or `id | description`.
-- **Score:** enter one `number | description` per line. The result is a
-  probability-weighted score and can fall between levels.
+| Decision | Input | Result |
+| --- | --- | --- |
+| Noul (Yes/No) | A question and the meanings of Yes and No | Yes probability and both answer probabilities |
+| Choice | One option per line: a name or `id | description` | The most probable option and all option probabilities |
+| Score | One level per line: `number | description` | A probability-weighted score, which can fall between levels |
 
-Context uses ordinary text fields. Results show probabilities and the selected
-execution device. Input JSON, rendered model input, and Output JSON are
-available in expandable panels. There is no system prompt field.
+Context is an editable set of key/value fields. Keys must be unique and nonempty;
+use **Add context field** to add another entry. Both keys and values are sent to
+the local model. There is no system prompt field in the UI.
 
-## Export your own checkpoint
+Results preserve candidate order. Noul and Choice highlight the most probable
+candidate. Score highlights the level nearest the weighted score, which may
+differ from the most probable level; ties use the first matching level in input
+order. Expand **Input JSON** or **Output JSON** to inspect the decision, rendered
+model input, and result.
 
-From the Python repository root:
+Requests accept 2–64 candidates. Noul requires exactly two. Token budgets come
+from the model manifest, and overlong inputs are truncated. Keep relevant
+information within those budgets; short inputs are best for interactive use.
 
-```sh
-uv run --with onnx==1.23.0 --with onnxscript==0.7.2 python browser/scripts/export_onnx.py /path/to/checkpoint --output /path/to/checkpoint/onnx
-uv run --with onnx==1.23.0 --with onnxruntime==1.30.0 python browser/scripts/quantize_onnx.py /path/to/checkpoint/onnx --output /path/to/checkpoint/onnx --embedding-only
-node browser/scripts/verify-export.js /path/to/checkpoint/onnx
-```
+## Node.js CPU API
 
-The checkpoint must contain `0_SharedPrefix/` and `1_DecisionHeads/`.
-The exporter supports full-weight ModernBERT shared-prefix models with balanced
-query truncation, no LoRA or task markers, and three scalar decision heads.
-It preserves the shared-prefix attention structure and checks Python parity.
-The quantizer writes `model_int8.onnx` and updates the manifest; the FP32
-`model.onnx` remains available for validation. The tokenizer is not quantized.
-
-To publish a runtime directory, include only the selected ONNX file, manifest,
-and tokenizer files, then add its URL to `src/models.js`. No checkpoint or
-training data is required for browser inference.
-
-## Node API
-
-Use a local export directory from this directory:
+Use a local ONNX export directory containing the four runtime files listed above.
+From this directory:
 
 ```sh
 npm run infer -- examples/choice.json /path/to/checkpoint/onnx
 ```
 
+The CLI example is an already-rendered model request. For structured context and
+criteria, use `renderDecision`:
+
 ```js
 import { loadModel } from './src/node.js';
 import { renderDecision } from './src/decision.js';
+
 const model = await loadModel('/path/to/checkpoint/onnx');
 try {
   const result = await model.predict(renderDecision({
-    task: 'choice', instruction: 'Which topic describes this article?',
+    task: 'choice',
+    instruction: 'Which topic describes this article?',
     state: { article: 'The player won the tennis championship.' },
     criteria: [
       { id: 'sports', description: 'Sports news.' },
@@ -121,30 +182,76 @@ try {
     ],
   }));
   console.log(result);
-} finally { await model.release(); }
+} finally {
+  await model.release();
+}
 ```
 
-Node uses CPU and reads the ONNX filename from the manifest. The low-level API
-also accepts already-rendered requests. Choice returns `selected_id`; Noul
-returns `probability_yes`; Score returns `score` and `normalized_score`. All
-include candidate probabilities. Noul requires `true`/`false` or `yes`/`no` IDs;
-Score requires distinct finite numeric values.
+Node uses `onnxruntime-node` on CPU and reads the ONNX filename from the manifest.
+Pass the directory explicitly; the default path is intended for local parity
+fixtures. `predict` also accepts an already-rendered request.
+
+Choice returns `selected_id`; Noul returns `probability_yes`; Score returns
+`score` and `normalized_score`. All include `probabilities` keyed by candidate
+ID. Noul requires `true`/`false` or `yes`/`no` IDs. Score requires distinct finite
+numeric values; `normalized_score` maps the minimum and maximum supplied values
+to 0 and 1.
+
+## Export a checkpoint
+
+Set up the Python environment as described in the [repository README](../README.md).
+Then run these commands from the repository root:
+
+```sh
+uv run --with onnx==1.23.0 --with onnxscript==0.7.2 \
+  python browser/scripts/export_onnx.py /path/to/checkpoint \
+  --output /path/to/checkpoint/onnx
+
+uv run --with onnx==1.23.0 --with onnxruntime==1.30.0 \
+  python browser/scripts/quantize_onnx.py /path/to/checkpoint/onnx \
+  --output /path/to/checkpoint/onnx --embedding-only
+
+node browser/scripts/verify-export.js /path/to/checkpoint/onnx
+```
+
+The checkpoint must contain `0_SharedPrefix/` and `1_DecisionHeads/`. The exporter
+supports full-weight ModernBERT shared-prefix models with balanced query
+truncation and three scalar decision heads. LoRA, task markers, and Choice
+interaction heads are not supported by this exporter.
+
+Export preserves shared-prefix attention and produces Python parity fixtures.
+Quantization writes `model_int8.onnx` and updates the manifest, while retaining
+the FP32 `model.onnx` for verification. `verify-export.js` checks FP32 logits
+against the fixtures and bounds prediction differences after quantization.
+
+Publish only the selected ONNX file, manifest, and tokenizer files for inference.
+Add the model URL and pinned revision to [`src/models.js`](src/models.js).
+Training checkpoints, training data, and parity fixtures are not needed by the
+browser app. Custom model hosting must allow cross-origin downloads from the app.
 
 ## Verification
 
-From a fresh checkout, run the checks that do not need model files:
+From this directory, the following checks work without local model files:
 
 ```sh
-node --test test/context.test.js test/decision.test.js test/download.test.js test/inference-time.test.js test/runtime-assets.test.js test/runtime.test.js
+node --test \
+  test/batched-inference.test.js \
+  test/context.test.js \
+  test/decision.test.js \
+  test/download.test.js \
+  test/inference-time.test.js \
+  test/runtime-assets.test.js \
+  test/runtime.test.js
 npm run build
 ```
 
-`npm test` also checks runtime parity and requires generated model files.
-Local parity tests require the FP32 export in `public/model/` and its
-embedding-INT8 variant in `public/model/quantized/embedding-int8/`.
-For any other export directory, use `scripts/verify-export.js` as shown above.
+`npm test` additionally runs model parity checks. These require an FP32 export in
+`public/model/` and its embedding-INT8 variant in
+`public/model/quantized/embedding-int8/`, generated from the same checkpoint.
+For an export elsewhere, use `scripts/verify-export.js` with its directory.
 
-Open the preview in Playwright CLI, then run:
+For UI checks, start the built preview with `npm run preview`, open its URL using
+Playwright CLI, and run:
 
 ```sh
 playwright-cli run-code --filename=scripts/check-browser.js
@@ -153,43 +260,45 @@ playwright-cli run-code --filename=scripts/check-runtime.js
 playwright-cli run-code --filename=scripts/check-hub-models.js
 ```
 
-These check forms, model reuse, error recovery, and CPU/WebGPU behavior.
-GPU unavailability is reported explicitly.
+These checks download the configured public models and cover forms, model reuse,
+error recovery, and backend selection. `check-runtime.js` compares CPU and WebGPU
+results when an adapter is available, and explicitly reports when it is not.
+`check-hub-models.js` exercises all three decision types on both available models
+using CPU. WebGPU validation should also be performed on the intended hardware.
 
-## Hugging Face Static Space
+## Deploy to a private Hugging Face Space
 
-Export a ready-to-upload directory:
+Export a ready-to-upload static directory:
 
 ```sh
 npm run export:space
 ```
 
-This builds the app and recreates `export/space/` with static assets and the Space
-README. Model files and local source files are not included.
+This rebuilds the app and recreates `export/space/` with the contents of `dist/`
+and the Space README. Local model files, training artifacts, and application
+source files are not included.
 
-With the Hugging Face CLI (`hf`) installed and authenticated via `hf auth login`
+With the Hugging Face CLI (`hf`) installed and authenticated using `hf auth login`
 or `HF_TOKEN`, export and deploy in one command:
 
 ```sh
 npm run deploy:space -- YOUR_ACCOUNT/YOUR_SPACE
-```
-
-The script creates a **private Static Space**, or verifies that an existing Space
-is private and static before uploading. It never switches visibility. Always pass
-your own Space ID; omitting it uses the maintainer's default Space. Uploaded assets use hashed
-filenames; previous assets are retained so existing browser sessions keep working.
-
-Check deployment status with:
-
-```sh
 hf spaces wait YOUR_ACCOUNT/YOUR_SPACE --timeout 5m
 ```
 
-The app downloads models directly from the pinned public Hub revision. No Python
-service, GPU server, or host build step is required. A private Space does not
-change the visibility of the model repository. Never include access tokens in
-frontend files.
+Always pass your own Space ID. Omitting it targets the maintainer's default
+Space. The script creates a **private Static Space**, or checks that an existing
+Space is private and static before uploading. It never changes visibility.
+Previously uploaded assets are retained so existing browser sessions can finish
+using their original build.
 
-References: [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html),
-[WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html),
-[Static Spaces](https://huggingface.co/docs/hub/spaces-sdks-static).
+The Space serves static assets; inference still runs in the visitor's browser.
+Models are downloaded directly from the pinned public Hub revision. A private
+Space does not make that model repository private. Deployment credentials belong
+in the CLI environment, never in frontend files.
+
+## References
+
+- [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html)
+- [ONNX Runtime WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html)
+- [Hugging Face Static Spaces](https://huggingface.co/docs/hub/spaces-sdks-static)
