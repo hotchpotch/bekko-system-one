@@ -8,8 +8,8 @@ export const MODELS = releases.map(([value, bytes, revision]) => {
   const repository = `hotchpotch/bekko-system-one-v0-${value}`;
   return {
     value,
-    name: `bekko-s1-v1-${value}`,
-    label: `bekko-s1-v1-${value} (size ${Math.round(bytes / 1e6)} MB)`,
+    name: `bekko-system-one-v0-${value}`,
+    label: `bekko-system-one-v0-${value} (size ${Math.round(bytes / 1e6)} MB)`,
     repository,
     bytes,
     revision,
