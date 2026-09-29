@@ -173,7 +173,8 @@ npm run deploy:space -- YOUR_ACCOUNT/YOUR_SPACE
 ```
 
 The script creates a **private Static Space**, or verifies that an existing Space
-is private and static before uploading. It never switches visibility. Always pass your own Space ID; omitting it uses the maintainer's default Space. Uploaded assets use hashed
+is private and static before uploading. It never switches visibility. Always pass
+your own Space ID; omitting it uses the maintainer's default Space. Uploaded assets use hashed
 filenames; previous assets are retained so existing browser sessions keep working.
 
 Check deployment status with:
