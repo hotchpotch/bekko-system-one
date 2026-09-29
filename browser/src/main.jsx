@@ -11,7 +11,7 @@ import {
   parseCriteria,
   renderDecision,
 } from "./decision.js";
-import { Button, Textarea, ModelLoadProgress, Picker, HelpTooltip } from "./ui.jsx";
+import { Button, Textarea, ModelLoadProgress, Picker, HelpTooltip, DecisionActivity } from "./ui.jsx";
 
 import { contextKeyError, contextObject } from "./context.js";
 
@@ -616,19 +616,13 @@ function App() {
               </p>
             ) : output ? (
               <Result output={output} />
+            ) : busy ? (
+              <DecisionActivity loading={loadedBytes === null} device={deviceLabel(device)} />
             ) : (
               <div className="empty-result">
-                <span className="empty-icon">{busy ? <LoaderCircle size={27} className="spin" aria-hidden="true" /> : <ChartNoAxesColumnIncreasing size={27} aria-hidden="true" />}</span>
-                <h3>
-                  {busy
-                    ? loadedBytes === null ? "Loading your model…" : "Working on your decision…"
-                    : "Ready for your first decision"}
-                </h3>
-                <p>
-                  {busy
-                    ? loadedBytes === null ? "Download progress is shown above. Your model will run on this device." : "Inference runs locally on your device."
-                    : "Choose an example and run it to see the answer and probabilities."}
-                </p>
+                <span className="empty-icon"><ChartNoAxesColumnIncreasing size={27} aria-hidden="true" /></span>
+                <h3>Ready for your first decision</h3>
+                <p>Choose an example and run it to see the answer and probabilities.</p>
               </div>
             )}
           </div>

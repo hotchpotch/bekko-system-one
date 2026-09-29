@@ -1,6 +1,6 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Select from "react-select";
-import { Info, Download, LoaderCircle } from "lucide-react";
+import { Info, Download, LoaderCircle, Cpu, Timer } from "lucide-react";
 
 export function Button({ secondary = false, className = "", ...props }) {
   return (
@@ -194,5 +194,40 @@ export function HelpTooltip({ id, label, children }) {
         {children}
       </span>
     </span>
+  );
+}
+
+export function DecisionActivity({ loading, device }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = performance.now();
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed((performance.now() - started) / 1000), 250);
+    return () => clearInterval(timer);
+  }, [loading]);
+  return (
+    <div className="empty-result decision-activity">
+      <div className="activity-visual" aria-hidden="true">
+        <span className="activity-halo" />
+        <span className="activity-core">{loading ? <Download size={24} /> : <Cpu size={24} />}</span>
+        <div className="activity-wave">
+          {[18, 28, 22, 38, 30, 42, 24, 34, 18].map((height, i) => (
+            <span key={i} style={{ height, animationDelay: `${i * -0.16}s` }} />
+          ))}
+        </div>
+      </div>
+      <h3>{loading ? "Getting your model ready" : "Working on your decision"}<span className="activity-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></h3>
+      <p>{loading
+        ? "Download progress is shown above. The model will run on your device."
+        : "Comparing your options with the information you provided."}</p>
+      <div className="activity-meta">
+        <span>{loading ? "Loading model" : `Running locally · ${device}`}</span>
+        <span className="activity-elapsed" aria-live="off"><Timer size={13} aria-hidden="true" />{elapsed.toFixed(1)} s elapsed</span>
+      </div>
+      <div className="activity-sweep" aria-hidden="true"><span /></div>
+      <p className="activity-reassurance">{!loading && elapsed >= 10
+        ? "Larger models and longer inputs can take more time. You can keep this tab open."
+        : "Your input stays on this device."}</p>
+    </div>
   );
 }

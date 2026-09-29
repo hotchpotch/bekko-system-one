@@ -896,3 +896,27 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
   .progress-heading { row-gap: 5px; }
   .empty-result { padding: 22px 14px; }
 }
+
+.decision-activity { overflow: hidden; }
+.activity-visual { position: relative; height: 108px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.activity-core { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; border: 1px solid #cbdcc3; background: #edf4e7; color: #426d4c; z-index: 1; }
+.activity-halo { position: absolute; width: 78px; height: 78px; border-radius: 26px; background: #e8f0df; animation: activity-breathe 2.8s ease-in-out infinite; }
+.activity-wave { display: flex; align-items: center; gap: 4px; position: absolute; bottom: 0; height: 28px; }
+.activity-wave span { display: block; width: 3px; max-height: 26px; border-radius: 3px; background: #87a882; transform-origin: center; animation: activity-wave 1.6s ease-in-out infinite; }
+.activity-dots { display: inline-flex; width: 15px; text-align: left; }
+.activity-dots span { animation: activity-dot 1.5s ease-in-out infinite; }
+.activity-dots span:nth-child(2) { animation-delay: .2s; }
+.activity-dots span:nth-child(3) { animation-delay: .4s; }
+.activity-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; margin-top: 20px; font-size: 11px; color: #58715a; }
+.activity-elapsed { display: inline-flex; align-items: center; gap: 4px; min-width: 95px; font-variant-numeric: tabular-nums; }
+.activity-sweep { position: relative; overflow: hidden; width: 140px; height: 3px; margin: 15px auto 0; border-radius: 5px; background: #e6edde; }
+.activity-sweep span { position: absolute; width: 45%; height: 100%; border-radius: inherit; background: #85a87d; animation: activity-sweep 2s ease-in-out infinite; }
+.decision-activity .activity-reassurance { min-height: 36px; font-size: 11px; line-height: 1.6; color: #788675; margin-top: 14px; }
+@keyframes activity-breathe { 0%, 100% { transform: scale(.88); opacity: .45; } 50% { transform: scale(1.09); opacity: .85; } }
+@keyframes activity-wave { 0%, 100% { transform: scaleY(.4); opacity: .45; } 50% { transform: scaleY(1); opacity: .9; } }
+@keyframes activity-dot { 0%, 75%, 100% { opacity: .25; } 35% { opacity: 1; } }
+@keyframes activity-sweep { from { transform: translateX(-110%); } to { transform: translateX(330%); } }
+@media (prefers-reduced-motion: reduce) {
+  .activity-halo, .activity-wave span, .activity-dots span, .activity-sweep span { animation: none; }
+  .activity-sweep span { left: 28%; }
+}
