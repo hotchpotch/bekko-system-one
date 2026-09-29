@@ -595,4 +595,53 @@ button {
     flex-basis: 100%;
   }
 }
-.runtime-selection{flex:1;min-width:230px;max-width:400px}.runtime-selection .hint{font-size:11px;max-width:350px}
+.runtime-selection {
+  flex: 1;
+  min-width: 230px;
+  max-width: 400px;
+}
+.runtime-selection .hint {
+  font-size: 11px;
+  max-width: 350px;
+}
+.runtime-radios legend {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 6px;
+  padding: 0;
+}
+.runtime-options {
+  display: flex;
+  gap: 8px;
+}
+.runtime-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #ccd7c8;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+.runtime-option.selected {
+  border-color: #368357;
+  background: #eaf0e4;
+}
+.runtime-option input {
+  margin: 0;
+  accent-color: #235d40;
+  width: 15px;
+  height: 15px;
+}
+.runtime-option:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.runtime-option:focus-within {
+  outline: 2px solid #90b598;
+  outline-offset: 2px;
+}

@@ -10,13 +10,11 @@ async (page) => {
     if(result.error) throw Error(result.error);
     return result;
   };
-  await page.locator('#runtime').press('ArrowDown');
-  const gpu = page.getByRole('option',{name:'WebGPU · Use your GPU',exact:true});
-  if(!await gpu.count()) {
-    await page.locator('#runtime').press('Escape');
+  const gpu = page.getByRole('radio',{name:'WebGPU',exact:true});
+  if(await gpu.isDisabled()) {
     return {webgpu:false, cpu:await run()};
   }
-  await gpu.click();
+  await gpu.check();
   const rows=[];
   for(const task of ['Noul (Yes/No)','Choice','Score']) {
     await select('task',task);
@@ -24,7 +22,7 @@ async (page) => {
     if(!(await page.locator('.result-time').textContent()).includes('WebGPU')) throw Error('Wrong backend label');
     rows.push({task,gpu:result});
   }
-  await select('runtime','CPU · Compatible with all devices');
+  await page.getByRole('radio',{name:'CPU',exact:true}).check();
   if(!(await page.locator('#model-status').textContent()).includes('Not downloaded')) throw Error('Switch must reset loaded state');
   for(const row of rows) {
     await select('task',row.task); row.cpu=await run();

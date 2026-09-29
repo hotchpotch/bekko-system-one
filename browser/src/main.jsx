@@ -316,25 +316,37 @@ function App() {
           </p>
         </div>
         <div className="runtime-selection">
-          <Picker
-            id="runtime"
-            label="Inference device"
-            value={device}
+          <fieldset
+            className="runtime-radios"
             disabled={busy}
-            searchable={false}
-            options={[
-              { value: "cpu", label: "CPU · Compatible with all devices" },
-              {
-                value: "webgpu",
-                label: gpu.available
-                  ? "WebGPU · Use your GPU"
-                  : "WebGPU · Unavailable",
-                disabled: !gpu.available,
-              },
-            ]}
-            onChange={switchDevice}
-          />
-          <p className="hint">{gpu.reason}</p>
+            aria-describedby="runtime-help"
+          >
+            <legend>Inference device</legend>
+            <div className="runtime-options">
+              {[
+                ["cpu", "CPU"],
+                ["webgpu", "WebGPU"],
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                  className={`runtime-option ${device === value ? "selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="runtime"
+                    value={value}
+                    checked={device === value}
+                    disabled={value === "webgpu" && !gpu.available}
+                    onChange={() => switchDevice(value)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <p id="runtime-help" className="hint">
+            {gpu.reason}
+          </p>
           {device === "webgpu" && (
             <p className="hint">
               Unsupported operations run on CPU. Switching devices reloads the
