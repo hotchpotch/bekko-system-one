@@ -305,11 +305,10 @@ function App() {
     <main>
       <header className="hero">
         <div className="hero-copy">
-          <div className="brand-wordmark">bekko<span>System One</span></div>
-          <h1>Ultra-small models.<br /><span>Decisions in your browser.</span></h1>
+          <div className="brand-wordmark">bekko-system-one</div>
+          <h1>An ultra-small System One model <span>in your browser.</span></h1>
           <p className="intro">
-            Check a condition, choose an option, or score an answer.
-            <br className="hero-break" /> Run it all locally, right in your browser.
+            Check a condition, choose an option, or score an answer. All on your device.
           </p>
         </div>
         <div className="hero-resources">
