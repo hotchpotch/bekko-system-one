@@ -407,10 +407,10 @@ function App() {
             <div className="large-model-notice">
               <HardDriveDownload size={18} aria-hidden="true" />
               <div>
-                <strong>Large model · 1.4 GB download</strong>
+                <strong>Large model · 1.4 GB download to your browser</strong>
                 <p>{loadedBytes === null
-                  ? "Downloads about 1.4 GB and needs substantial memory. Choose 17m or 68m for a lighter download."
-                  : "This model uses substantial memory. Switching models or reloading the page may require another 1.4 GB download."}</p>
+                  ? "About 1.4 GB will be downloaded to your browser and run on your device. This model also needs substantial memory. Choose 17m or 68m for a smaller download."
+                  : "This model runs in your browser and uses substantial memory. Switching models or reloading the page may download another 1.4 GB to your browser."}</p>
               </div>
             </div>
           )}
