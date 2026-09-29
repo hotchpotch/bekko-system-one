@@ -25,7 +25,7 @@ async function load(base, device) {
     ["manifest.json", "tokenizer_config.json", "tokenizer.json"].map(json),
   );
   const tokenizer = createTokenizer(data, config);
-  const bytes = await asset("model.onnx");
+  const bytes = await asset(manifest.model_file || "model.onnx");
   self.postMessage({
     status: `Preparing model for ${deviceLabel(device)} inference…`,
   });

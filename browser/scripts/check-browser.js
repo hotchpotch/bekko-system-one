@@ -2,14 +2,14 @@
 async (page) => {
   await page.reload();
   const modelRequests = [];
-  const track = request => { if (request.url().endsWith('/model.onnx')) modelRequests.push(request.url()); };
+  const track = request => { if (request.url().endsWith('/model_int8.onnx')) modelRequests.push(request.url()); };
   page.on('request', track);
   const results = [];
   try {
     if (await page.locator('#system').count()) throw Error('System prompt must not be in the UI');
     if (!await page.locator('#yes').isVisible() || !await page.locator('#no').isVisible()) throw Error('Yes/No meanings must be visible');
     await page.locator('#model').press('ArrowDown');
-    for (const name of ['Bekko 68M · Coming soon', 'Bekko 400M · Coming soon']) {
+    for (const name of ['Bekko 400M · Coming soon']) {
       if (await page.getByRole('option', {name, exact:true}).getAttribute('aria-disabled') !== 'true') throw Error('Unavailable models must be disabled');
     }
     await page.locator('#model').press('Escape');
@@ -31,7 +31,7 @@ async (page) => {
       if ('system' in request || request.task !== task) throw Error('Unexpected request structure');
       results.push({ task, result: response, headline: await page.locator('.result-value').textContent() });
     }
-    if (modelRequests.length !== 1 || !modelRequests[0].includes('embedding-int8')) throw Error('Model should load once, using the selected INT8 model');
+    if (modelRequests.length !== 1 || !modelRequests[0].includes('tmp-BS1-onnx')) throw Error('Model should load once, using the selected INT8 model');
     await page.locator('#options').fill('0 | First\n0 | Duplicate');
     await page.locator('#run').click();
     if (!(await page.locator('#result').textContent()).includes('different')) throw Error('Duplicate score values must be rejected');

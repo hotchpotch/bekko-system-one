@@ -119,6 +119,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="Directory containing the FP32 export")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--embedding-only",
+        action="store_true",
+        help="Write model_int8.onnx and its manifest directly to --output",
+    )
     args = parser.parse_args()
     original = onnx.load(args.source / "model.onnx")
     original_heads = {
@@ -136,7 +141,9 @@ def main():
         ("blocks-weight-int8", False, "weight_only"),
         ("embedding-blocks-weight-int8", True, "weight_only"),
     ]:
-        target = args.output / name
+        if args.embedding_only and name != "embedding-int8":
+            continue
+        target = args.output if args.embedding_only else args.output / name
         target.mkdir(parents=True, exist_ok=True)
         model = onnx.load(args.source / "model.onnx")
         fold_weight_aliases(model)
@@ -148,11 +155,9 @@ def main():
             for n in model.graph.node
             if n.op_type == "MatMul" and n.input[1] in constants and n.name.startswith("/encoder/")
         ]
-        if len(selected) != 53:
-            raise ValueError(
-                f"Expected 53 linear applications in 7 shared blocks, got {len(selected)}"
-            )
-        destination = target / "model.onnx"
+        if not selected:
+            raise ValueError("No Transformer linear applications found")
+        destination = target / ("model_int8.onnx" if args.embedding_only else "model.onnx")
         if blocks == "dynamic":
             quantize_dynamic(
                 model,
@@ -177,16 +182,21 @@ def main():
             np.testing.assert_array_equal(value, expected)
             assert actual[key].dtype == np.float32
         integer_ops = sum(n.op_type == "MatMulInteger" for n in result.graph.node)
-        assert integer_ops == (53 if blocks == "dynamic" else 0)
+        assert integer_ops == (len(selected) if blocks == "dynamic" else 0)
         for asset in [
             "tokenizer.json",
             "tokenizer_config.json",
             "parity.json",
             "tokenization-parity.json",
         ]:
-            shutil.copyfile(args.source / asset, target / asset)
+            if (args.source / asset).resolve() != (target / asset).resolve():
+                shutil.copyfile(args.source / asset, target / asset)
         manifest = json.loads((args.source / "manifest.json").read_text())
-        manifest["source_model_sha256"] = manifest["model_sha256"]
+        manifest["model_file"] = destination.name
+        manifest["model_bytes"] = destination.stat().st_size
+        manifest["source_model_sha256"] = hashlib.sha256(
+            (args.source / "model.onnx").read_bytes()
+        ).hexdigest()
         manifest["model_sha256"] = hashlib.sha256(destination.read_bytes()).hexdigest()
         manifest["quantization"] = dict(
             embedding="rowwise_symmetric_int8" if embedding else "fp32",

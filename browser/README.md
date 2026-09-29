@@ -1,37 +1,8 @@
 # Bekko browser inference
 
-A Node.js runtime and React static browser interface for a full-weight Bekko 17M checkpoint.
-It supports Choice, Noul (binary yes/no), and ordinal Score. Node uses ONNX Runtime
-CPU; the browser offers CPU (single-threaded WASM) and WebGPU in a Web Worker. Input text never goes
-to an inference server. Model, tokenizer, JavaScript, and WASM are served locally. The default model uses
-INT8 token embeddings with FP32 Transformer blocks and decision heads (29.02 MB).
-
-## Export the checkpoint
-
-From the Python repository root, with the existing `uv` environment:
-
-```sh
-uv run --with onnx==1.23.0 --with onnxscript==0.7.2 python browser/scripts/export_onnx.py /path/to/checkpoint
-```
-
-Then create the embedding-INT8 default (and comparison variants):
-
-```sh
-uv run --with onnx==1.23.0 --with onnxruntime==1.30.0 python browser/scripts/quantize_onnx.py browser/public/model --output browser/public/model/quantized
-```
-
-The input directory must contain `0_SharedPrefix/` and `1_DecisionHeads/`.
-The exporter supports the current full-weight ModernBERT model with balanced
-query truncation, no LoRA, no task markers, and all three decision heads. It
-preserves independent prefix attention, candidate-to-prefix attention, rotary
-positions, sliding windows, mean pooling, and the trained scalar heads.
-
-Files are generated in `public/model/` (ignored by Git). `model.onnx` is FP32,
-approximately 67.5 MB for 17M, with dynamic token and candidate dimensions.
-`manifest.json` records model/weight hashes and token budgets. The exporter checks
-ONNX validity and compares its portable implementation with the original packed
-Python encoder. It also writes reference fixtures for JavaScript parity tests.
-No training data is needed during export or inference.
+A React interface for running Choice, Noul (yes/no), and Score locally with
+ONNX Runtime. Select a model, choose an example, and run it. Inputs stay on your
+device; model files are downloaded from the public Hugging Face Hub.
 
 ## Run
 
@@ -39,233 +10,145 @@ Requires Node.js 22 or later. From this directory:
 
 ```sh
 npm ci
-npm test
-npm run infer -- examples/noul.json
 npm run dev
 ```
 
-Open the URL printed by Vite. The default binds only to localhost. An alternate
-model directory can be supplied after the request path:
-
-```sh
-npm run infer -- examples/choice.json /path/to/exported/model
-```
-
-Build and preview a self-contained static site:
+The default server binds to localhost. Build a static site with:
 
 ```sh
 npm run build
 npm run preview
 ```
 
-Keep **all of `dist/`**, including `assets/` and `model/`. Serve it over HTTP(S),
-not `file://`. There are no CDN dependencies or inference API calls. Initial
-uncompressed assets total approximately 60 MB. The static build includes only
-the selected embedding-INT8 model; FP32 and other comparison models stay local. A running page reuses its loaded
-model; persistence across reloads depends on normal HTTP caching.
+Serve all of `dist/` over HTTP(S), not `file://`. No inference server is needed.
+Model weights are fetched on demand, not included in the static build. The first
+run needs network access to Hugging Face; subsequent requests depend on normal
+browser HTTP caching. The current page reuses its loaded inference session.
+
+## Models
+
+Models are hosted in [hotchpotch/tmp-BS1-onnx](https://huggingface.co/hotchpotch/tmp-BS1-onnx).
+`src/models.js` defines the available models and pins the Hub revision.
+
+| Model | ONNX download | Availability |
+| --- | ---: | --- |
+| 17M | 29.0 MB | Available |
+| 68M | 196.3 MB | Available |
+| 400M | — | Coming soon |
+
+Both available models use INT8 token embeddings and FP32 Transformer blocks and
+heads. Each directory contains `model_int8.onnx`, `manifest.json`,
+`tokenizer.json`, and `tokenizer_config.json`. The manifest identifies the model
+file, hashes, quantization policy, task heads, and token budgets.
+
+Use **Download model now** to preload, or run an example to load automatically.
+File progress shows received bytes; initialization is displayed separately.
+Switching model or execution device releases the current worker and loads the
+new session on the next run. Failed downloads can be retried.
 
 ## Inference device
 
-Select **CPU** or **WebGPU** beside the model selector. CPU is the default.
-WebGPU is enabled only when the browser can obtain a GPU adapter in a secure
-context (HTTPS or localhost). Plain HTTP on a network IP uses CPU. The interface
-explains unavailable GPU support and reports the selected device with results.
-Changing devices clears the session and reloads the model on the next run.
+Choose **CPU** (the default) or **WebGPU**. WebGPU requires HTTPS or localhost
+and a usable GPU adapter. The interface explains when it is unavailable.
+Unsupported GPU operations can use CPU assistance. If WebGPU fails, select CPU
+and retry. Speed depends on your device and input length.
 
-WebGPU uses ONNX Runtime's WebGPU execution provider with CPU assistance for
-unsupported operations. Performance depends on the device and input; GPU is not
-necessarily faster for short examples. If initialization or inference fails,
-select CPU and retry. There is no silent switch of the selected device.
+The runtime uses a Web Worker and scores candidates sequentially. Query and
+candidate limits are read from the model manifest; long inputs are truncated.
+Short inputs are best for interactive use.
 
-To exercise GPU inference and compare all three heads with CPU, open the preview
-in a WebGPU-capable browser and run:
+## Inputs and results
 
-```sh
-playwright-cli run-code --filename=scripts/check-runtime.js
-```
+Choose a decision type on the left and search for an example on the right.
+Examples are editable. **Reset example** restores its inputs. Run buttons are
+available above and below the input fields.
 
-The check reports GPU unavailability explicitly when no adapter is usable.
-See [ONNX Runtime WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html).
+- **Yes / No:** edit the meanings of both answers directly in the form.
+- **Choice:** enter one option per line, as a name or `id | description`.
+- **Score:** enter one `number | description` per line. The result is a
+  probability-weighted score and can fall between levels.
 
-## Request and output
+Context uses ordinary text fields. Results show probabilities and the selected
+execution device. Request JSON, rendered model input, and response JSON are
+available in expandable panels. There is no system prompt field.
 
-```js
-import { loadModel } from './src/node.js';
-import { renderDecision } from './src/decision.js';
-
-const model = await loadModel();
-try {
-  const result = await model.predict(renderDecision({
-    task: 'choice',
-    instruction: 'Which topic best describes the news article?',
-    state: { article: 'The tennis player won the championship final.' },
-    criteria: [
-      { id: 'sports', description: 'Sports news.' },
-      { id: 'business', description: 'Business and economic news.' },
-    ],
-  }));
-  console.log(result);
-} finally {
-  await model.release();
-}
-```
-
-- `choice`: returns `selected_id` and per-ID `probabilities`.
-- `noul`: use exactly two IDs, `true`/`false` or `yes`/`no`, in either order.
-  Returns `probability_yes` and `probabilities`. Candidate `text` is the actual
-  model input; IDs determine interpretation only.
-- `score`: each candidate needs a distinct finite numeric `value`. Returns the
-  probability-weighted `score`, min/max-normalized `normalized_score`,
-  `probabilities`, and `values`. This is an ordinal distribution, not a separate
-  regression output. Numeric values are explicit metadata, never inferred from
-  candidate text.
-
-For the low-level `predict` API, optional fields are `system` (string) and `layout` (`instruction_state`, the
-default, or `state_instruction`). The runtime reproduces Python's component-wise
-balanced query tokenization. For the current checkpoint, query length is 4096
-and candidate length is 2048, including special tokens; excess tails are
-truncated. The runtime accepts 2–64 candidates and scores them sequentially to
-bound attention memory. Prefix encoding is recomputed per candidate in this
-simple implementation. Full-length inputs can still be expensive on browser
-CPU; short inputs are recommended for interactive demos.
-
-## Verification
-
-After export, `npm test` compares exact token IDs and all three head logits
-against Python for English, Japanese, Unicode, empty text, different candidate
-counts/lengths, both prompt orders, and input exceeding the local attention
-window. Separate tokenization fixtures check query/document truncation limits.
-Tests require the FP32 and embedding-INT8 exports and fail if they are absent.
-The FP32 parity test keeps its strict tolerance. The default-model test separately
-checks the quantization policy and bounds probability drift to 0.03 on the five
-smoke fixtures; this is a regression bound, not a general accuracy guarantee.
-
-To check the built site in an actual browser, open the preview with
-`playwright-cli`, then run:
-
-```sh
-playwright-cli run-code --filename=scripts/check-browser.js
-playwright-cli run-code --filename=scripts/check-model-loading.js
-```
-
-## Future Hugging Face Static Space
-
-Build locally and copy the **contents** of `dist/` to the root of a Static Space,
-along with `SPACE_README.md` renamed to `README.md`. This includes the exported
-model. No Python service, Node service, GPU, cross-origin isolation headers, or
-build step is required on the host. Nothing is uploaded by the build command.
-The built site has been tested locally; deployment to Spaces is a separate step.
-
-References: [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html),
-[Hugging Face tokenizers.js](https://github.com/huggingface/tokenizers.js),
-[Static HTML Spaces](https://huggingface.co/docs/hub/spaces-sdks-static).
-
-## INT8 comparison variants
+## Export your own checkpoint
 
 From the Python repository root:
 
 ```sh
-uv run --with onnx==1.23.0 --with onnxruntime==1.30.0 python browser/scripts/quantize_onnx.py browser/public/model --output browser/public/model/quantized
+uv run --with onnx==1.23.0 --with onnxscript==0.7.2 python browser/scripts/export_onnx.py /path/to/checkpoint --output /path/to/checkpoint/onnx
+uv run --with onnx==1.23.0 --with onnxruntime==1.30.0 python browser/scripts/quantize_onnx.py /path/to/checkpoint/onnx --output /path/to/checkpoint/onnx --embedding-only
+node browser/scripts/verify-export.js /path/to/checkpoint/onnx
 ```
 
-This creates five variant directories. `embedding-int8` is the Node/browser
-default; `public/model/model.onnx` remains the FP32 comparison source. Each directory works as the model-directory argument to the Node CLI.
+The checkpoint must contain `0_SharedPrefix/` and `1_DecisionHeads/`.
+The exporter supports full-weight ModernBERT shared-prefix models with balanced
+query truncation, no LoRA or task markers, and three scalar decision heads.
+It preserves the shared-prefix attention structure and checks Python parity.
+The quantizer writes `model_int8.onnx` and updates the manifest; the FP32
+`model.onnx` remains available for validation. The tokenizer is not quantized.
 
-| Directory | Token embedding table | Transformer linear weights / computation |
-| --- | --- | --- |
-| `embedding-int8` | Row-wise symmetric INT8 | FP32 / FP32 |
-| `blocks-int8` | FP32 | Per-channel INT8 / dynamic UINT8×INT8 |
-| `embedding-blocks-int8` | Row-wise symmetric INT8 | Per-channel INT8 / dynamic UINT8×INT8 |
-| `blocks-weight-int8` | FP32 | Per-channel INT8 storage / FP32 |
-| `embedding-blocks-weight-int8` | Row-wise symmetric INT8 | Per-channel INT8 storage / FP32 |
+To publish a runtime directory, include only the selected ONNX file, manifest,
+and tokenizer files, then add its URL to `src/models.js`. No checkpoint or
+training data is required for browser inference.
 
-All three task heads remain FP32, with exactly preserved weight/bias values.
-Tokenizer files and vocabulary are unchanged. LayerNorm, rotary positions,
-attention score operations, softmax, and residuals remain floating point.
-The block-only scope covers the seven blocks' QKV, attention output, and MLP
-linear weights, shared between prefix and candidate branches. There are 53
-linear applications in the exported graph: the final prefix layer only needs
-QKV, so its unused output projection and MLP are removed during export.
+## Node API
 
-Weight-only variants explicitly restore weights using Cast and Mul, avoiding
-Q/DQ matrix fusion. These compress downloads, **not necessarily runtime memory
-or computation**: a runtime can restore the full FP32 matrices during session
-initialization. Dynamic variants also quantize activations at runtime and can
-change predictions substantially; measure them on your own tasks before use.
-
-From this directory, compare a JSON array of `{request, target, dataset,
-case_id, decision_id}` examples (targets aligned to candidates):
+Use a local export directory from this directory:
 
 ```sh
-node scripts/compare_quantization.js /path/to/cases.json public/model /path/to/comparison.json
-node scripts/compare_quantization.js /path/to/cases.json public/model /path/to/weight-only.json fp32,blocks-weight-int8,embedding-blocks-weight-int8
+npm run infer -- examples/choice.json /path/to/checkpoint/onnx
 ```
 
-The comparison measures candidate-at-a-time inference, matching the browser
-runtime. Supply requests rendered exactly as in training when measuring trained
-model quality. It records hashes, file sizes, logit/probability changes, top-1
-agreement, Noul yes-probability changes, normalized Score changes, target cross
-entropy, and rough latency. Target argmax accuracy is only a supplementary
-metric when labels are soft distributions.
+```js
+import { loadModel } from './src/node.js';
+import { renderDecision } from './src/decision.js';
+const model = await loadModel('/path/to/checkpoint/onnx');
+try {
+  const result = await model.predict(renderDecision({
+    task: 'choice', instruction: 'Which topic describes this article?',
+    state: { article: 'The player won the tennis championship.' },
+    criteria: [
+      { id: 'sports', description: 'Sports news.' },
+      { id: 'business', description: 'Business news.' },
+    ],
+  }));
+  console.log(result);
+} finally { await model.release(); }
+```
 
-To compare Node with browser WASM on the export's synthetic parity fixtures:
+Node uses CPU and reads the ONNX filename from the manifest. The low-level API
+also accepts already-rendered requests. Choice returns `selected_id`; Noul
+returns `probability_yes`; Score returns `score` and `normalized_score`. All
+include candidate probabilities. Noul requires `true`/`false` or `yes`/`no` IDs;
+Score requires distinct finite numeric values.
+
+## Verification
+
+`npm test` checks input parsing, device detection, downloads, and runtime parity.
+Local parity tests require the FP32 export in `public/model/` and its
+embedding-INT8 variant in `public/model/quantized/embedding-int8/`.
+For any other export directory, use `scripts/verify-export.js` as shown above.
+
+Open the preview in Playwright CLI, then run:
 
 ```sh
-node scripts/prepare-quantized-smoke.js
-npm run build
-# Use the dev server (which exposes comparison assets), run an example, then:
-playwright-cli run-code --filename=scripts/check-quantized-browser.js
+playwright-cli run-code --filename=scripts/check-browser.js
+playwright-cli run-code --filename=scripts/check-model-loading.js
+playwright-cli run-code --filename=scripts/check-runtime.js
+playwright-cli run-code --filename=scripts/check-hub-models.js
 ```
 
-The browser script reports `withinTolerance` at an absolute probability
-difference of 1e-4; `false` is a measured cross-runtime discrepancy, not a pass.
-Quantized operator behavior can differ across backends. The production build includes only the selected model. Use `npm run dev` when
-running the optional all-variant browser comparison.
+These check forms, model reuse, error recovery, and CPU/WebGPU behavior.
+GPU unavailability is reported explicitly.
 
+## Hugging Face Static Space
 
-## English web examples and input controls
+Copy the contents of `dist/` to a Static Space, with `SPACE_README.md` renamed to
+`README.md`. The app downloads models directly from the pinned Hub revision.
+No Python service, GPU server, or host build step is required.
 
-The UI includes 35 editable demonstrations covering email, paraphrases,
-entailment, rules, news topics, entity types, and document relevance.
-`src/examples.json` contains only instructions, context, and criteria. Examples
-are editable starting points for trying each decision type.
-
-Use **Download model now** to prepare the model before running a decision, or run an
-example to load it automatically. File progress shows received bytes and download
-completion; initialization is shown separately. Unknown download sizes remain
-indeterminate. The model selector shows 17M as available, with 68M and 400M marked as coming soon.
-A loaded model is reused across decisions, and failed downloads
-can be retried. **Reset example** restores the selected example's inputs.
-
-Choose a decision type on the left and search for an example on the right.
-Run it immediately using the button below the selectors, or edit the fields first.
-Selectors use React Select with keyboard navigation and grouped examples.
-
-Context is edited in ordinary text fields (for example Subject and Body,
-Premise and Hypothesis, or Query and Document). No JSON editing is required.
-Yes/No shows editable meanings for both answers directly in the form.
-Choice accepts one option per line, either a label or `id | description`.
-Score accepts one `number | description` per line, preserving explicit numeric
-values. Results show the selected answer, probabilities, or the expected score
-on its original scale. Score documents are independent examples; the score
-levels are criteria, not competing documents.
-
-The UI fixes `instruction_state` order and provides no system prompt field.
-`renderDecision` matches the native training renderer: context is serialized as
-JSON, Noul includes both criterion meanings in its context envelope, and
-candidates receive `Candidate: id: description`. Native Python renderer fixtures
-cover all three types. The Node low-level `predict` function remains available
-for already-rendered inputs.
-
-Request JSON (the actual decision sent to the worker), rendered model input,
-and response JSON are pretty-printed in collapsed disclosures. The persistent
-model status reports the actual ONNX byte length after the inference session
-has initialized, e.g. `Model loaded · 29.0 MB · Ready on your device`. This number
-excludes tokenizer and WASM assets.
-
-`npm test` checks input parsing, native renderer parity, and inference parity. `scripts/check-browser.js` checks all
-three task UIs, default Yes/No criteria, invalid score levels, request/response
-disclosures, mobile overflow, and a single model load across repeated decisions.
-`scripts/check-model-loading.js` checks preload, failed-download recovery, model
-reuse, and resetting edited inputs. Shared React controls live in `src/ui.jsx`;
-the inference worker stays independent of the interface.
+References: [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html),
+[WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html),
+[Static Spaces](https://huggingface.co/docs/hub/spaces-sdks-static).

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
-import { DEFAULT_MODEL_PATH } from "./default-model.js";
+import { MODELS, DEFAULT_MODEL_ID } from "./models.js";
 import {
   DEFAULT_YES,
   DEFAULT_NO,
@@ -130,6 +130,16 @@ function Result({ output }) {
   );
 }
 function App() {
+  const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
+  const model = MODELS.find((item) => item.value === modelId);
+  function switchModel(next) {
+    worker.current?.terminate();
+    worker.current = null;
+    setModelId(next);
+    setLoadedBytes(null);
+    setFiles({});
+    clear();
+  }
   const [device, setDevice] = useState("cpu");
   const [gpu, setGpu] = useState({
     available: false,
@@ -255,10 +265,7 @@ function App() {
       getWorker().postMessage({
         ...(loadOnly ? { type: "load" } : { decision }),
         device,
-        base: new URL(
-          `${import.meta.env.BASE_URL}${DEFAULT_MODEL_PATH}`,
-          document.baseURI,
-        ).href,
+        base: model.base,
       });
     } catch (e) {
       fail(e.message);
@@ -282,7 +289,7 @@ function App() {
           </p>
         </div>
         <span className="badge">
-          17M · {deviceLabel(device)} · Private inputs
+          {model.name} · {deviceLabel(device)} · Private inputs
         </span>
       </header>
       <section className="model-panel" aria-label="Model">
@@ -290,23 +297,11 @@ function App() {
           <Picker
             id="model"
             label="Model"
-            value="17m"
+            value={modelId}
             searchable={false}
             disabled={busy}
-            options={[
-              { value: "17m", label: "Bekko 17M · 29 MB" },
-              {
-                value: "68m",
-                label: "Bekko 68M · Coming soon",
-                disabled: true,
-              },
-              {
-                value: "400m",
-                label: "Bekko 400M · Coming soon",
-                disabled: true,
-              },
-            ]}
-            onChange={() => {}}
+            options={MODELS}
+            onChange={switchModel}
           />
           <p
             id="model-status"
@@ -564,7 +559,7 @@ function App() {
         </aside>
       </div>
       <footer>
-        Bekko 17M · INT8 embeddings · {deviceLabel(device)} inference · No
+        {model.name} · INT8 embeddings · {deviceLabel(device)} inference · No
         inference server
       </footer>
     </main>
