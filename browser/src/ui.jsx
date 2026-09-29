@@ -39,7 +39,7 @@ export function Textarea({ id, label, help, maxRows, ...props }) {
   }, [maxRows, props.value]);
   return (
     <div className="field">
-      {label && <label htmlFor={id}>{label}</label>}
+      {label && <FieldLabel id={id} label={label} help={help} />}
       <textarea
         ref={textarea}
         rows={maxRows ? 1 : undefined}
@@ -48,11 +48,7 @@ export function Textarea({ id, label, help, maxRows, ...props }) {
         aria-describedby={help ? `${id}-help` : undefined}
         {...props}
       />
-      {help && (
-        <p id={`${id}-help`} className="hint">
-          {help}
-        </p>
-      )}
+
     </div>
   );
 }
@@ -86,6 +82,7 @@ export function ModelLoadProgress({ files, status }) {
 }
 
 export function Picker({
+  help,
   id,
   label,
   options,
@@ -97,7 +94,7 @@ export function Picker({
   const flat = options.flatMap((option) => option.options || [option]);
   return (
     <div className="picker">
-      <label htmlFor={id}>{label}</label>
+      <FieldLabel id={id} label={label} help={help} />
       <Select
         inputId={id}
         instanceId={id}
@@ -124,11 +121,44 @@ export function Picker({
   );
 }
 
+export function FieldLabel({ id, label, help }) {
+  return (
+    <div className="field-label">
+      <label htmlFor={id}>{label}</label>
+      {help && <HelpTooltip id={`${id}-help`} label={`Help: ${label}`}>{help}</HelpTooltip>}
+    </div>
+  );
+}
+
 export function HelpTooltip({ id, label, children }) {
   const [open, setOpen] = useState(false);
+  const anchor = useRef(null);
+  const bubble = useRef(null);
+  const [position, setPosition] = useState({});
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = anchor.current.getBoundingClientRect();
+      const box = bubble.current.getBoundingClientRect();
+      setPosition({
+        left: Math.max(12, Math.min(rect.left, innerWidth - box.width - 12)),
+        top: rect.bottom + box.height + 8 < innerHeight
+          ? rect.bottom + 6
+          : Math.max(12, rect.top - box.height - 6),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, children]);
   return (
     <span
       className="help-tooltip"
+      ref={anchor}
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse") setOpen(true);
       }}
@@ -155,7 +185,7 @@ export function HelpTooltip({ id, label, children }) {
           <circle cx="12" cy="7.5" r=".9" fill="currentColor" stroke="none" />
         </svg>
       </button>
-      <span id={id} role="tooltip" className="help-content" hidden={!open}>
+      <span ref={bubble} id={id} role="tooltip" className="help-content" style={position} hidden={!open}>
         {children}
       </span>
     </span>

@@ -813,3 +813,24 @@ footer p {
 .runtime-option.selected {
   background: transparent;
 }
+
+.field-label,
+.result-kicker,
+.result-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.field-label label {
+  margin-right: 0;
+}
+.field-label .help-tooltip {
+  flex-shrink: 0;
+}
+.help-content {
+  position: fixed;
+  z-index: 100;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+}

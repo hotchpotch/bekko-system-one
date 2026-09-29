@@ -75,6 +75,13 @@ function Result({ output }) {
     <>
       <div className="result-kicker">
         {decision.task === "score" ? "Model score" : "Model prediction"}
+        <HelpTooltip id="result-help" label="Help with this result">
+          {decision.task === "score"
+            ? "The score averages your numeric levels using their probabilities. It may differ from the most likely single level. The bars show the probability for each level."
+            : decision.task === "choice"
+              ? "The heading shows the most likely option. Bars show probabilities across all options in your input order. Similar probabilities mean the model has no clear preference."
+              : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
+        </HelpTooltip>
       </div>
       <div className="result-value">{title}</div>
       <p className="result-note">{note}</p>
@@ -121,6 +128,11 @@ function Result({ output }) {
       ))}
       <p className="result-time">
         Inference: {inferenceMilliseconds.toFixed(1)} ms · {deviceLabel(device)}
+        <HelpTooltip id="timing-help" label="Help with inference time">
+          Time spent running the model across all candidates. Downloads, tokenization,
+          and result formatting are excluded. First runs may take longer. WebGPU may use
+          CPU assistance for unsupported operations.
+        </HelpTooltip>
       </p>
     </>
   );
@@ -303,6 +315,7 @@ function App() {
           <Picker
             id="model"
             label="Model"
+            help={`${model.name} runs on your device. Larger models use more memory and take longer to load; they are not always more accurate. Switching models starts a new session.`}
             value={modelId}
             searchable={false}
             disabled={busy}
@@ -398,6 +411,11 @@ function App() {
               <Picker
                 id="task"
                 label="1. Decision type"
+                help={{
+                  noul: "Noul checks a condition and returns Yes/No probabilities. Use Yes means and No means to define what each answer represents.",
+                  choice: "Choice selects one of your options. Write distinct alternatives and describe them if their names alone are unclear.",
+                  score: "Score rates the context against numeric levels. The result is a probability-weighted average, so it can fall between levels.",
+                }[form.task]}
                 value={form.task}
                 disabled={busy}
                 searchable={false}
@@ -519,6 +537,7 @@ function App() {
                     <Textarea
                       id="yes"
                       label="Yes means"
+                      help="Describe the condition that counts as Yes. Define the opposite under No means; these descriptions are included in the model input."
                       rows={2}
                       required
                       value={form.yes}
@@ -549,8 +568,8 @@ function App() {
                   onChange={(e) => change("options", e.target.value)}
                   help={
                     form.task === "score"
-                      ? "One level per line: number | meaning. Scores may fall between levels."
-                      : "One option per line: a name, or name | description."
+                      ? "One level per line: number | meaning, such as 0 | Not relevant. Use distinct numbers and describe each level. Results keep your input order; scores can fall between levels."
+                      : "One option per line: a unique name, or name | description. For example, refund | The customer wants their money back. Results keep your input order."
                   }
                 />
               </div>
