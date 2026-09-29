@@ -645,3 +645,46 @@ button {
   outline: 2px solid #90b598;
   outline-offset: 2px;
 }
+
+.context-field {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #dce4d7;
+  border-radius: 9px;
+  background: #f8faf6;
+}
+.context-key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.context-key-row label {
+  margin: 0;
+}
+.context-key-row input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 9px;
+  border: 1px solid #c7d2c3;
+  border-radius: 6px;
+  background: #fff;
+  color: #20372e;
+  font: 13px ui-monospace, monospace;
+}
+.context-key-row input:focus {
+  outline: 2px solid #90b598;
+  outline-offset: 2px;
+}
+.context-key-row input[aria-invalid="true"] {
+  border-color: #a53434;
+}
+.context-field .field label {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: #65756a;
+}
+.context-error {
+  color: #a53434;
+  font-size: 12px;
+  margin: 6px 0 0;
+}

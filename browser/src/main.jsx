@@ -11,6 +11,8 @@ import {
 } from "./decision.js";
 import { Button, Textarea, ModelLoadProgress, Picker } from "./ui.jsx";
 
+import { contextKeyError, contextObject } from "./context.js";
+
 import { detectWebGPU, deviceLabel } from "./runtime.js";
 
 const pretty = (value) => JSON.stringify(value, null, 2);
@@ -28,7 +30,7 @@ function initialForm(task, id = defaults[task]) {
     task,
     id,
     instruction: item?.instruction || "",
-    state: item?.state || { text: "" },
+    context: Object.entries(item?.state || { text: "" }),
     yes: criteria.find((c) => c.id === "true")?.description || DEFAULT_YES,
     no: criteria.find((c) => c.id === "false")?.description || DEFAULT_NO,
     options:
@@ -248,7 +250,7 @@ function App() {
         decision = {
           task: form.task,
           instruction: form.instruction.trim(),
-          state: form.state,
+          state: contextObject(form.context),
           criteria: parseCriteria(form.task, form.options, form.yes, form.no),
         };
         renderDecision(decision);
@@ -445,22 +447,44 @@ function App() {
               <h3>Context</h3>
               <span className="hint">The information to judge</span>
             </div>
+            <p id="context-help" className="hint">Each key names the value below it. Both are sent to the model. Use a unique, non-empty key.</p>
             <div id="state-fields">
-              {Object.entries(form.state).map(([key, value], index) => (
-                <Textarea
-                  key={key}
-                  id={`state-${index}`}
-                  data-key={key}
-                  label={key
-                    .replaceAll("_", " ")
-                    .replace(/^./, (c) => c.toUpperCase())}
-                  rows={String(value).length > 180 ? 4 : 2}
-                  value={value}
-                  onChange={(e) =>
-                    change("state", { ...form.state, [key]: e.target.value })
-                  }
-                />
-              ))}
+              {form.context.map(([key, value], index) => {
+                const keyError = contextKeyError(form.context, index);
+                return (
+                  <div className="context-field" key={index}>
+                    <div className="context-key-row">
+                      <label htmlFor={`state-key-${index}`}>Key</label>
+                      <input
+                        id={`state-key-${index}`}
+                        aria-label={`Context key ${index + 1}`}
+                        aria-invalid={!!keyError}
+                        aria-describedby={keyError ? `state-key-error-${index}` : "context-help"}
+                        ref={(input) => input?.setCustomValidity(keyError)}
+                        value={key}
+                        required
+                        spellCheck={false}
+                        autoComplete="off"
+                        onChange={(e) => change("context", form.context.map((entry, i) =>
+                          i === index ? [e.target.value, entry[1]] : entry
+                        ))}
+                      />
+                    </div>
+                    {keyError && <p className="context-error" id={`state-key-error-${index}`} role="alert">{keyError}</p>}
+                    <Textarea
+                      id={`state-${index}`}
+                      data-key={key}
+                      label="Value"
+                      aria-label={`Context value ${index + 1}${key ? ` (${key})` : ""}`}
+                      rows={String(value).length > 180 ? 4 : 2}
+                      value={value}
+                      onChange={(e) => change("context", form.context.map((entry, i) =>
+                        i === index ? [entry[0], e.target.value] : entry
+                      ))}
+                    />
+                  </div>
+                );
+              })}
             </div>
             {form.task === "noul" ? (
               <div id="binary-fields">
