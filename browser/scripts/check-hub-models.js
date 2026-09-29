@@ -4,7 +4,7 @@ async (page) => {
   await page.getByRole("radio", {name:"CPU", exact:true}).click();
   const select=async(id,name)=>{await page.locator(`#${id}`).press('ArrowDown');await page.getByRole('option',{name,exact:true}).click();};
   const rows=[];
-  for(const model of ['Bekko 17M · 29 MB','Bekko 68M · 196 MB']) {
+  for(const model of ['Bekko s1 v0 17M (size 29 MB)','Bekko s1 v0 68M (size 196 MB)']) {
     await select('model',model);
     if(!(await page.locator('#model-status').textContent()).includes('Not loaded')) throw Error('Model switch must clear session');
     for(const task of ['Noul (Yes/No)','Choice','Score']) {

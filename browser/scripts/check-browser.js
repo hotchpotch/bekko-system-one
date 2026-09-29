@@ -9,7 +9,7 @@ async (page) => {
     if (await page.locator('#system').count()) throw Error('System prompt must not be in the UI');
     if (!await page.locator('#yes').isVisible() || !await page.locator('#no').isVisible()) throw Error('Yes/No meanings must be visible');
     await page.locator('#model').press('ArrowDown');
-    for (const name of ['Bekko 400M · Coming soon']) {
+    for (const name of ['Bekko s1 v0 400M (Coming soon)']) {
       if (await page.getByRole('option', {name, exact:true}).getAttribute('aria-disabled') !== 'true') throw Error('Unavailable models must be disabled');
     }
     await page.locator('#model').press('Escape');

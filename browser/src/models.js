@@ -5,20 +5,20 @@ export const DEFAULT_MODEL_ID = "17m";
 export const MODELS = [
   {
     value: "17m",
-    name: "Bekko 17M",
-    label: "Bekko 17M · 29 MB",
+    name: "Bekko s1 v0 17M",
+    label: "Bekko s1 v0 17M (size 29 MB)",
     base: `${base}/17m/`,
   },
   {
     value: "68m",
-    name: "Bekko 68M",
-    label: "Bekko 68M · 196 MB",
+    name: "Bekko s1 v0 68M",
+    label: "Bekko s1 v0 68M (size 196 MB)",
     base: `${base}/68m/`,
   },
   {
     value: "400m",
-    name: "Bekko 400M",
-    label: "Bekko 400M · Coming soon",
+    name: "Bekko s1 v0 400M",
+    label: "Bekko s1 v0 400M (Coming soon)",
     disabled: true,
   },
 ];
