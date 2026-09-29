@@ -1,24 +1,24 @@
 {
   "task": "choice",
-  "instruction": "Which topic best describes the news article?",
-  "state": "{\"article\":\"The tennis player won the final in three sets on Sunday, securing her first major championship trophy.\"}",
+  "instruction": "Which support team should handle this customer request?",
+  "state": "{\"message\":\"I forgot my password for the customer portal. How can I reset it so I can sign in again?\"}",
   "layout": "instruction_state",
   "candidates": [
     {
-      "id": "sports",
-      "text": "Candidate: sports: Sports news."
+      "id": "Password reset",
+      "text": "Candidate: Password reset: The user cannot sign in and needs to reset a forgotten password."
     },
     {
-      "id": "business",
-      "text": "Candidate: business: Business and economic news."
+      "id": "Refund request",
+      "text": "Candidate: Refund request: The user wants their money back for a purchase."
     },
     {
-      "id": "sci_tech",
-      "text": "Candidate: sci_tech: Science and technology news."
+      "id": "Delivery tracking",
+      "text": "Candidate: Delivery tracking: The user wants to locate an order or check its delivery status."
     },
     {
-      "id": "world",
-      "text": "Candidate: world: World news and international politics."
+      "id": "Cancel subscription",
+      "text": "Candidate: Cancel subscription: The user wants to stop a recurring subscription."
     }
   ]
 }

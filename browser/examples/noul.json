@@ -1,16 +1,16 @@
 {
   "task": "noul",
-  "instruction": "Do the sentences express the same meaning, including who did what to whom?",
-  "state": "{\"noul\":{\"yes\":\"Yes, the condition in the question holds.\",\"no\":\"No, the condition in the question does not hold.\"},\"state\":{\"sentence1\":\"The morning train runs from Fernwick to Ashford.\",\"sentence2\":\"The morning train runs to Ashford from Fernwick.\"}}",
+  "instruction": "Is this email unsolicited spam or bulk marketing?",
+  "state": "{\"noul\":{\"yes\":\"The email is unsolicited spam or bulk marketing.\",\"no\":\"The email is not unsolicited spam or bulk marketing.\"},\"state\":{\"subject\":\"Exclusive deal for business owners\",\"body\":\"Dear business owner, buy our premium office software today at 85% off! This limited offer is sent to thousands of companies. Click now and claim your discount before midnight.\"}}",
   "layout": "instruction_state",
   "candidates": [
     {
-      "id": "false",
-      "text": "Candidate: false: No, the condition in the question does not hold."
+      "id": "true",
+      "text": "Candidate: true: The email is unsolicited spam or bulk marketing."
     },
     {
-      "id": "true",
-      "text": "Candidate: true: Yes, the condition in the question holds."
+      "id": "false",
+      "text": "Candidate: false: The email is not unsolicited spam or bulk marketing."
     }
   ]
 }
