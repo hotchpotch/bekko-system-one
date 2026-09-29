@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
+import { RESOURCE_LINKS } from "./links.js";
 import { MODELS, DEFAULT_MODEL_ID } from "./models.js";
 import {
   DEFAULT_YES,
@@ -619,8 +620,18 @@ function App() {
         </aside>
       </div>
       <footer>
-        {model.name} · INT8 embeddings · {deviceLabel(device)} inference · No
-        inference server
+        <p>
+          Embedding layer: INT8 · Transformer blocks and prediction heads: FP32
+        </p>
+        <p>Inference runs in your browser. No inference server.</p>
+        <nav className="resource-links" aria-label="Models and project resources">
+          {RESOURCE_LINKS.map(({ label, href, placeholder }) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer">
+              {label}{placeholder ? " (Coming soon)" : ""} ↗
+            </a>
+          ))}
+        </nav>
+        <p className="hint">Links marked “Coming soon” are placeholders.</p>
       </footer>
     </main>
   );

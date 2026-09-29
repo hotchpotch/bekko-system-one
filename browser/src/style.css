@@ -752,3 +752,21 @@ button {
   font-weight: 400;
   line-height: 1.6;
 }
+footer p {
+  margin: 6px 0;
+}
+.resource-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-top: 14px;
+}
+.resource-links a {
+  color: #235d40;
+  text-underline-offset: 3px;
+}
+.resource-links a:focus-visible {
+  outline: 2px solid #90b598;
+  outline-offset: 3px;
+}
