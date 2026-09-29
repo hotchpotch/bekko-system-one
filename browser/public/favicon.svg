@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Bekko — amber ox</title>
+  <rect width="32" height="32" rx="7" fill="#fff4d9"/>
+  <!-- Square horns and amber facets echo the block-built ox. -->
+  <path d="M6 3h5v8H6zM21 3h5v8h-5z" fill="#432716"/>
+  <path d="M3 10h26v7H3z" fill="#aa5817"/>
+  <path d="M8 7h16l3 7v11l-5 4H10l-5-4V14z" fill="#d88a20"/>
+  <path d="M8 7h16l-3 6H11z" fill="#ffc75b"/>
+  <path d="M5 14l6-1v9l-6 3z" fill="#b66919"/>
+  <path d="M21 13l6 1v11l-6-3z" fill="#eeaa32"/>
+  <path d="M8 13h6v6H8zM18 13h6v6h-6z" fill="#fff8df"/>
+  <path d="M10 14h3v4h-3zM19 14h3v4h-3z" fill="#382419"/>
+  <path d="M7 21h18v6l-3 2H10l-3-2z" fill="#8b481b"/>
+  <path d="M7 21h18v3H7z" fill="#f7b13b"/>
+  <path d="M10 24h3v3h-3zM19 24h3v3h-3z" fill="#382419"/>
+</svg>
