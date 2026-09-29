@@ -11,6 +11,8 @@ import {
 } from "./decision.js";
 import { Button, Textarea, ModelLoadProgress, Picker } from "./ui.jsx";
 
+import { detectWebGPU, deviceLabel } from "./runtime.js";
+
 const pretty = (value) => JSON.stringify(value, null, 2);
 const percent = (value) => `${(value * 100).toFixed(1)}%`;
 const defaults = {
@@ -42,7 +44,7 @@ function initialForm(task, id = defaults[task]) {
   };
 }
 function Result({ output }) {
-  const { decision, result, milliseconds } = output;
+  const { decision, result, milliseconds, device = "cpu" } = output;
   const candidates = decision.criteria;
   const sorted = [...candidates].sort(
     (a, b) => result.probabilities[b.id] - result.probabilities[a.id],
@@ -119,12 +121,37 @@ function Result({ output }) {
         </div>
       ))}
       <p className="result-time">
-        Completed in {milliseconds.toFixed(0)} ms · On-device CPU
+        Completed in {milliseconds.toFixed(0)} ms · {deviceLabel(device)}
+        {device === "webgpu"
+          ? " (CPU fallback for unsupported operations)"
+          : " on your device"}
       </p>
     </>
   );
 }
 function App() {
+  const [device, setDevice] = useState("cpu");
+  const [gpu, setGpu] = useState({
+    available: false,
+    reason: "Checking WebGPU availability…",
+  });
+  useEffect(() => {
+    let active = true;
+    detectWebGPU().then((support) => {
+      if (active) setGpu(support);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  function switchDevice(next) {
+    worker.current?.terminate();
+    worker.current = null;
+    setDevice(next);
+    setLoadedBytes(null);
+    setFiles({});
+    clear();
+  }
   const [form, setForm] = useState(() => initialForm("noul"));
   const [busy, setBusy] = useState(false),
     [status, setStatus] = useState(
@@ -179,7 +206,9 @@ function App() {
         return;
       }
       if (data.error) {
-        fail(data.error);
+        fail(
+          `${data.error}${device === "webgpu" ? " Try CPU if WebGPU cannot run this model on your device." : ""}`,
+        );
         return;
       }
       setBusy(false);
@@ -218,9 +247,14 @@ function App() {
       }
       if (loadedBytes === null) setFiles({});
       setBusy(true);
-      setStatus(loadedBytes === null ? "Loading model…" : "Running on CPU…");
+      setStatus(
+        loadedBytes === null
+          ? "Loading model…"
+          : `Running on ${deviceLabel(device)}…`,
+      );
       getWorker().postMessage({
         ...(loadOnly ? { type: "load" } : { decision }),
+        device,
         base: new URL(
           `${import.meta.env.BASE_URL}${DEFAULT_MODEL_PATH}`,
           document.baseURI,
@@ -247,7 +281,9 @@ function App() {
             Check a condition, choose an option, or score an answer.
           </p>
         </div>
-        <span className="badge">17M · CPU · Private inputs</span>
+        <span className="badge">
+          17M · {deviceLabel(device)} · Private inputs
+        </span>
       </header>
       <section className="model-panel" aria-label="Model">
         <div className="model-selection">
@@ -278,11 +314,38 @@ function App() {
             className={loadedBytes !== null ? "loaded" : ""}
           >
             {loadedBytes !== null
-              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · Runs on your device`
+              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · ${deviceLabel(device)}`
               : busy
                 ? status
                 : "Not downloaded yet. Your first run loads the model automatically."}
           </p>
+        </div>
+        <div className="runtime-selection">
+          <Picker
+            id="runtime"
+            label="Inference device"
+            value={device}
+            disabled={busy}
+            searchable={false}
+            options={[
+              { value: "cpu", label: "CPU · Compatible with all devices" },
+              {
+                value: "webgpu",
+                label: gpu.available
+                  ? "WebGPU · Use your GPU"
+                  : "WebGPU · Unavailable",
+                disabled: !gpu.available,
+              },
+            ]}
+            onChange={switchDevice}
+          />
+          <p className="hint">{gpu.reason}</p>
+          {device === "webgpu" && (
+            <p className="hint">
+              Unsupported operations run on CPU. Switching devices reloads the
+              model.
+            </p>
+          )}
         </div>
         {loadedBytes === null ? (
           <Button
@@ -501,7 +564,8 @@ function App() {
         </aside>
       </div>
       <footer>
-        Bekko 17M · INT8 embeddings · CPU inference · No inference server
+        Bekko 17M · INT8 embeddings · {deviceLabel(device)} inference · No
+        inference server
       </footer>
     </main>
   );

@@ -2,7 +2,7 @@
 
 A Node.js runtime and React static browser interface for a full-weight Bekko 17M checkpoint.
 It supports Choice, Noul (binary yes/no), and ordinal Score. Node uses ONNX Runtime
-CPU; the browser uses single-threaded WASM in a Web Worker. Input text never goes
+CPU; the browser offers CPU (single-threaded WASM) and WebGPU in a Web Worker. Input text never goes
 to an inference server. Model, tokenizer, JavaScript, and WASM are served locally. The default model uses
 INT8 token embeddings with FP32 Transformer blocks and decision heads (29.02 MB).
 
@@ -60,9 +60,32 @@ npm run preview
 
 Keep **all of `dist/`**, including `assets/` and `model/`. Serve it over HTTP(S),
 not `file://`. There are no CDN dependencies or inference API calls. Initial
-uncompressed assets total approximately 47 MB. The static build includes only
+uncompressed assets total approximately 60 MB. The static build includes only
 the selected embedding-INT8 model; FP32 and other comparison models stay local. A running page reuses its loaded
 model; persistence across reloads depends on normal HTTP caching.
+
+## Inference device
+
+Select **CPU** or **WebGPU** beside the model selector. CPU is the default.
+WebGPU is enabled only when the browser can obtain a GPU adapter in a secure
+context (HTTPS or localhost). Plain HTTP on a network IP uses CPU. The interface
+explains unavailable GPU support and reports the selected device with results.
+Changing devices clears the session and reloads the model on the next run.
+
+WebGPU uses ONNX Runtime's WebGPU execution provider with CPU assistance for
+unsupported operations. Performance depends on the device and input; GPU is not
+necessarily faster for short examples. If initialization or inference fails,
+select CPU and retry. There is no silent switch of the selected device.
+
+To exercise GPU inference and compare all three heads with CPU, open the preview
+in a WebGPU-capable browser and run:
+
+```sh
+playwright-cli run-code --filename=scripts/check-runtime.js
+```
+
+The check reports GPU unavailability explicitly when no adapter is usable.
+See [ONNX Runtime WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html).
 
 ## Request and output
 

@@ -1,14 +1,20 @@
-import * as ort from "onnxruntime-web/wasm";
-import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.wasm?url";
-import mjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.mjs?url";
+import * as ort from "onnxruntime-web/webgpu";
+import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
+import mjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 import { download } from "./download.js";
 import { renderDecision } from "./decision.js";
 import { createTokenizer, predict } from "./core.js";
 
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.wasmPaths = { wasm: wasmUrl, mjs: mjsUrl };
+import { detectWebGPU, executionProviders, deviceLabel } from "./runtime.js";
 let runtime;
-async function load(base) {
+let loadedDevice;
+async function load(base, device) {
+  if (device === "webgpu") {
+    const support = await detectWebGPU();
+    if (!support.available) throw Error(support.reason);
+  }
   const asset = (name) =>
     download(new URL(name, base).href, (progress) =>
       self.postMessage({ progress: { file: name, ...progress } }),
@@ -20,30 +26,43 @@ async function load(base) {
   );
   const tokenizer = createTokenizer(data, config);
   const bytes = await asset("model.onnx");
-  self.postMessage({ status: "Preparing model for CPU inference…" });
+  self.postMessage({
+    status: `Preparing model for ${deviceLabel(device)} inference…`,
+  });
   const session = await ort.InferenceSession.create(bytes, {
-    executionProviders: ["wasm"],
+    executionProviders: executionProviders(device),
   });
   self.postMessage({ loadedBytes: bytes.byteLength });
   return { manifest, tokenizer, session, ort };
 }
 self.onmessage = async ({ data }) => {
   try {
+    const device = data.device || "cpu";
+    executionProviders(device);
+    if (runtime && loadedDevice !== device) {
+      await runtime.session.release();
+      runtime = null;
+    }
     if (!runtime) {
       self.postMessage({ status: "Loading model…" });
-      runtime = await load(data.base);
+      runtime = await load(data.base, device);
+      loadedDevice = device;
     }
     if (data.type === "load") {
       self.postMessage({ ready: true });
       return;
     }
-    self.postMessage({ status: "Running on CPU…" });
+    self.postMessage({ status: `Running on ${deviceLabel(device)}…` });
     const start = performance.now();
     const result = await predict(
       data.decision ? renderDecision(data.decision) : data.request,
       runtime,
     );
-    self.postMessage({ result, milliseconds: performance.now() - start });
+    self.postMessage({
+      result,
+      device,
+      milliseconds: performance.now() - start,
+    });
   } catch (error) {
     self.postMessage({ error: error.message });
   }

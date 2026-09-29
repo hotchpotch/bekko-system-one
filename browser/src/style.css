@@ -595,3 +595,4 @@ button {
     flex-basis: 100%;
   }
 }
+.runtime-selection{flex:1;min-width:230px;max-width:400px}.runtime-selection .hint{font-size:11px;max-width:350px}
