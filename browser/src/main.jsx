@@ -300,14 +300,19 @@ function App() {
     <main>
       <header>
         <div>
-          <div className="eyebrow">
-            <span className="dot" /> BEKKO · ON-DEVICE AI
-          </div>
           <h1>Run an ultra-small System One model in your browser</h1>
           <p className="intro">
             Load a model that runs directly in your browser. Check a condition,
             choose an option, or score an answer.
           </p>
+        <nav className="resource-links" aria-label="Models and project resources">
+          {RESOURCE_LINKS.map(({ label, href, placeholder }) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer">
+              {label}{placeholder ? " (Coming soon)" : ""} ↗
+            </a>
+          ))}
+        </nav>
+        <p className="hint">Links marked “Coming soon” are placeholders.</p>
         </div>
       </header>
       <section className="model-panel" aria-label="Model">
@@ -648,14 +653,7 @@ function App() {
           Embedding layer: INT8 · Transformer blocks and prediction heads: FP32
         </p>
         <p>Inference runs in your browser. No inference server.</p>
-        <nav className="resource-links" aria-label="Models and project resources">
-          {RESOURCE_LINKS.map(({ label, href, placeholder }) => (
-            <a key={label} href={href} target="_blank" rel="noopener noreferrer">
-              {label}{placeholder ? " (Coming soon)" : ""} ↗
-            </a>
-          ))}
-        </nav>
-        <p className="hint">Links marked “Coming soon” are placeholders.</p>
+
       </footer>
     </main>
   );

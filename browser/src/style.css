@@ -49,7 +49,7 @@ p {
 }
 .intro {
   font-size: 17px;
-  max-width: 600px;
+  max-width: none;
 }
 .model-status {
   display: inline-block;
@@ -758,7 +758,8 @@ footer p {
 .resource-links {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
+  font-size: 13px;
   gap: 8px 18px;
   margin-top: 14px;
 }
@@ -833,4 +834,8 @@ footer p {
   text-transform: none;
   letter-spacing: normal;
   text-align: left;
+}
+
+header > div {
+  width: 100%;
 }
