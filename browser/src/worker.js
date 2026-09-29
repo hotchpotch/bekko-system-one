@@ -1,12 +1,23 @@
 import * as ort from "onnxruntime-web/webgpu";
 import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
-import mjsUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
+import mjsSource from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?raw";
 import { download } from "./download.js";
 import { renderDecision } from "./decision.js";
 import { createTokenizer, predict } from "./core.js";
 
 ort.env.wasm.numThreads = 1;
-ort.env.wasm.wasmPaths = { wasm: wasmUrl, mjs: mjsUrl };
+// Bundle the runtime module: dynamic imports from classic workers can omit the
+// cookies required by private static hosts. The blob needs no authenticated request.
+const runtimeModuleUrl = URL.createObjectURL(new Blob([mjsSource], { type: "text/javascript" }));
+ort.env.wasm.wasmPaths = { mjs: runtimeModuleUrl };
+let wasmReady = false;
+async function prepareWasm() {
+  if (wasmReady) return;
+  const response = await fetch(wasmUrl, { credentials: "same-origin" });
+  if (!response.ok) throw Error(`Could not load inference runtime (HTTP ${response.status}). Reload the page and check your Space access.`);
+  ort.env.wasm.wasmBinary = await response.arrayBuffer();
+  wasmReady = true;
+}
 import { detectWebGPU, executionProviders, deviceLabel } from "./runtime.js";
 let runtime;
 let loadedDevice;
@@ -29,6 +40,7 @@ async function load(base, device) {
   self.postMessage({
     status: `Preparing model for ${deviceLabel(device)} inference…`,
   });
+  await prepareWasm();
   const session = await ort.InferenceSession.create(bytes, {
     executionProviders: executionProviders(device),
   });

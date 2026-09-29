@@ -197,6 +197,7 @@ function App() {
     if (worker.current) return worker.current;
     const current = new Worker(new URL("./worker.js", import.meta.url), {
       type: "module",
+      credentials: "include",
     });
     current.onmessage = ({ data }) => {
       if (data.progress) {
