@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import Select from "react-select";
+import { Info, Download, LoaderCircle } from "lucide-react";
 
 export function Button({ secondary = false, className = "", ...props }) {
   return (
@@ -61,22 +62,30 @@ export function Progress({ value, label }) {
     />
   );
 }
-export function ModelLoadProgress({ files, status }) {
-  const list = Object.entries(files);
-  const loaded = list.reduce((sum, [, file]) => sum + file.loaded, 0);
-  const model = list.find(([name]) => name.endsWith(".onnx"))?.[1];
+export function ModelLoadProgress({ files, status, expectedBytes }) {
+  const model = Object.entries(files).find(([name]) => name.endsWith(".onnx"))?.[1];
   const preparing = status.startsWith("Preparing");
-  const value = !preparing && model?.total ? Math.min(100, model.loaded / model.total * 100) : null;
+  const total = model?.total || expectedBytes;
+  // Show model bytes only: tokenizer downloads are separate from this total.
+  const loaded = model?.loaded || 0;
+  const value = !preparing && total ? Math.min(100, loaded / total * 100) : null;
+  const mb = bytes => (bytes / 1e6).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return (
     <div className="load-progress" aria-label="Model loading progress">
       <div className="progress-heading">
-        <span>{preparing ? "Preparing model…" : "Downloading model…"}</span>
+        <span className="progress-stage">
+          {preparing ? <LoaderCircle className="spin" size={16} aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}
+          {preparing ? "Preparing model…" : "Downloading model…"}
+        </span>
         <span className="progress-amount">
-          {preparing ? "Almost ready" : `${(loaded / 1e6).toFixed(1)} MB received`}
-          {value != null && ` · ${Math.floor(value)}%`}
+          {mb(loaded)} MB{total ? ` / ${mb(total)} MB` : " received"}
         </span>
       </div>
       <Progress label={preparing ? "Preparing inference runtime" : "Model download"} value={value} />
+      <div className="progress-caption">
+        <span>{preparing ? "Setting up inference on your device" : "Loading into your browser"}</span>
+        <span>{preparing ? "Initializing" : value == null ? "Receiving data" : `${Math.floor(value)}%`}</span>
+      </div>
     </div>
   );
 }
@@ -179,11 +188,7 @@ export function HelpTooltip({ id, label, children }) {
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
       >
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 11v6" />
-          <circle cx="12" cy="7.5" r=".9" fill="currentColor" stroke="none" />
-        </svg>
+        <Info size={16} strokeWidth={1.8} aria-hidden="true" />
       </button>
       <span ref={bubble} id={id} role="tooltip" className="help-content" style={position} hidden={!open}>
         {children}

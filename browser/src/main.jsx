@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
@@ -130,6 +131,7 @@ function Result({ output }) {
         </div>
       ))}
       <p className="result-time">
+        <Timer size={15} aria-hidden="true" />
         Inference: {inferenceMilliseconds.toFixed(1)} ms · {deviceLabel(device)}
         <HelpTooltip id="timing-help" label="Help with inference time">
           Time spent running the model across all candidates. Downloads, tokenization,
@@ -310,12 +312,14 @@ function App() {
           </p>
         <nav className="resource-links" aria-label="Models and project resources">
           {RESOURCE_LINKS.map(({ label, href, placeholder }) => (
-            <a key={label} href={href} target="_blank" rel="noopener noreferrer">
-              {label}{placeholder ? " (Coming soon)" : ""} ↗
+            <a key={label} className={`resource-badge ${placeholder ? "resource-placeholder" : ""}`} href={href} target="_blank" rel="noopener noreferrer">
+              {label.startsWith("🤗") ? null : label === "Technical article" ? <BookOpen size={15} aria-hidden="true" /> : <Code2 size={15} aria-hidden="true" />}
+              <span>{label}</span>{placeholder && <span className="coming-soon">Coming soon</span>}
+              <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           ))}
         </nav>
-        <p className="hint">Links marked “Coming soon” are placeholders.</p>
+
         </div>
       </header>
       <section className="model-panel" aria-label="Model">
@@ -374,7 +378,7 @@ function App() {
                     disabled={busy || (value === "webgpu" && !gpu.available)}
                     onChange={() => switchDevice(value)}
                   />
-                  <span>{label}</span>
+                  <span className="device-label">{value === "cpu" ? <Cpu size={16} aria-hidden="true" /> : <CircuitBoard size={16} aria-hidden="true" />}{label}</span>
                 </label>
               ))}
             </div>
@@ -388,6 +392,7 @@ function App() {
             disabled={busy}
             onClick={() => start(true)}
           >
+            {busy ? <LoaderCircle size={17} className="spin" aria-hidden="true" /> : <Download size={17} aria-hidden="true" />}
             {busy
               ? "Loading…"
               : error
@@ -395,10 +400,10 @@ function App() {
                 : "Load model"}
           </Button>
         ) : (
-          <span className="loaded-badge">✓ Loaded · Ready to run</span>
+          <span className="loaded-badge"><CircleCheck size={17} aria-hidden="true" /> Loaded · Ready to run</span>
         )}
         {busy && loadedBytes === null && (
-          <ModelLoadProgress files={files} status={status} />
+          <ModelLoadProgress files={files} status={status} expectedBytes={model.bytes} />
         )}
       </section>
       <div className="workspace">
@@ -412,7 +417,7 @@ function App() {
         >
           <fieldset id="inputs" disabled={busy}>
             <div className="section-title">
-              <span className="step">1</span>
+              <span className="step"><SlidersHorizontal size={18} aria-hidden="true" /></span>
               <h2>Set up a decision</h2>
             </div>
             <div className="decision-pickers">
@@ -453,7 +458,8 @@ function App() {
               />
             </div>
             <Button id="run-example" type="submit" disabled={busy}>
-              {busy ? "Working…" : "Run decision →"}
+              {busy ? <LoaderCircle size={17} className="spin" aria-hidden="true" /> : <Play size={17} aria-hidden="true" />}
+              {busy ? "Working…" : "Run decision"}
             </Button>
             <div className="form-toolbar">
               <p className="hint">Edit any field to try your own input.</p>
@@ -462,7 +468,7 @@ function App() {
                 type="button"
                 onClick={() => choose(form.task, form.id)}
               >
-                Reset example
+                <RotateCcw size={14} aria-hidden="true" /> Reset example
               </Button>
             </div>
             <Textarea
@@ -536,7 +542,7 @@ function App() {
                 });
               }}
             >
-              + Add context field
+              <Plus size={15} aria-hidden="true" /> Add context field
             </Button>
             {form.task === "noul" ? (
               <div id="binary-fields">
@@ -586,11 +592,11 @@ function App() {
           <Button id="run" type="submit" disabled={busy}>
             {busy ? (
               <>
-                <span className="spinner" aria-hidden="true" /> Working…
+                <LoaderCircle size={17} className="spin" aria-hidden="true" /> Working…
               </>
             ) : (
               <>
-                Run decision <span aria-hidden="true">→</span>
+                <Play size={17} aria-hidden="true" /> Run decision
               </>
             )}
           </Button>
@@ -600,7 +606,7 @@ function App() {
         </form>
         <aside className="panel result-panel">
           <div className="section-title">
-            <span className="step">2</span>
+            <span className="step"><ChartNoAxesColumnIncreasing size={18} aria-hidden="true" /></span>
             <h2>Your result</h2>
           </div>
           <div id="result" aria-live="polite" aria-busy={busy}>
@@ -612,21 +618,22 @@ function App() {
               <Result output={output} />
             ) : (
               <div className="empty-result">
+                <span className="empty-icon">{busy ? <LoaderCircle size={27} className="spin" aria-hidden="true" /> : <ChartNoAxesColumnIncreasing size={27} aria-hidden="true" />}</span>
                 <h3>
                   {busy
-                    ? "Working on your decision…"
+                    ? loadedBytes === null ? "Loading your model…" : "Working on your decision…"
                     : "Ready for your first decision"}
                 </h3>
                 <p>
                   {busy
-                    ? "Inference runs locally on your device."
+                    ? loadedBytes === null ? "Download progress is shown above. Your model will run on this device." : "Inference runs locally on your device."
                     : "Choose an example and run it to see the answer and probabilities."}
                 </p>
               </div>
             )}
           </div>
           <details className="developer">
-            <summary>Input JSON</summary>
+            <summary><Braces size={15} aria-hidden="true" /> Input JSON</summary>
             <pre id="request-json">
               {request
                 ? pretty(request)
@@ -640,7 +647,7 @@ function App() {
             </details>
           </details>
           <details className="developer">
-            <summary>Output JSON</summary>
+            <summary><Braces size={15} aria-hidden="true" /> Output JSON</summary>
             <pre id="response-json">
               {error
                 ? pretty({ error })

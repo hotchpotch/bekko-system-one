@@ -204,11 +204,6 @@ pre {
   padding: 28px 8px 40px;
   text-align: center;
 }
-.empty-result > span {
-  display: block;
-  font-size: 38px;
-  color: #8aab8a;
-}
 .empty-result p {
   font-size: 14px;
 }
@@ -838,4 +833,66 @@ footer p {
 
 header > div {
   width: 100%;
+}
+
+/* Compact, consistent surfaces and controls. */
+:root { background: #f4f6ef; }
+.lucide { flex-shrink: 0; stroke-width: 1.8; vertical-align: middle; }
+header { max-width: none; margin-bottom: 26px; }
+h1 { max-width: 1000px; text-wrap: balance; }
+.resource-links { gap: 8px; margin-top: 20px; }
+.resource-links .resource-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border: 1px solid #d3dfd0; border-radius: 9px;
+  background: #fff; color: #28593f; text-decoration: none;
+  font-size: 12px; font-weight: 600;
+  box-shadow: 0 1px 2px #20372e06;
+  transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.resource-links .resource-badge:hover { background: #edf4e9; border-color: #98b899; box-shadow: 0 2px 6px #20372e0d; }
+.resource-links .resource-placeholder { background: transparent; color: #5a6b61; font-weight: 500; }
+.coming-soon { font-size: 10px; font-weight: 550; color: #637260; background: #e9eee3; border-radius: 4px; padding: 1px 5px; }
+.model-panel, .panel { box-shadow: 0 3px 14px #20372e05; }
+.model-panel { border-top: 3px solid #b4c9ae; }
+.section-title { padding-bottom: 16px; border-bottom: 1px solid #edf0e9; }
+.step { border-radius: 10px; width: 34px; height: 34px; background: #eef3e9; }
+button { align-items: center; gap: 8px; transition: background .15s, box-shadow .15s; }
+button.primary { justify-content: center; box-shadow: 0 2px 4px #20372e12; }
+button.primary:hover:not(:disabled) { background: #194d33; box-shadow: 0 3px 8px #20372e20; }
+button.secondary { justify-content: center; }
+button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outline-offset: 3px; }
+.device-label, .loaded-badge, .progress-stage { display: inline-flex; align-items: center; gap: 7px; }
+.runtime-options { gap: 12px; }
+.runtime-option { padding: 5px 7px; border-radius: 6px; }
+.runtime-option.selected { background: #edf3e9; }
+.loaded-badge { font-size: 12px; border: 1px solid #dae5d4; }
+.load-progress { background: #f7faf4; border: 1px solid #e1e9db; padding: 10px 12px; border-radius: 9px; }
+.load-progress .progress-heading { align-items: center; flex-wrap: wrap; }
+.progress-stage { font-weight: 600; color: #345e43; }
+.progress-amount { color: #3d5947; font-size: 12px; }
+.load-progress progress { height: 5px; margin-top: 8px; }
+.progress-caption { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; color: #6b7b6b; font-size: 11px; }
+.context-field { border-color: #e0e6db; background: #f9fbf7; }
+.empty-result { border: 1px dashed #d6e0cf; border-radius: 12px; background: linear-gradient(150deg, #f8fbf5, #fff); padding: 30px 18px; text-align: center; }
+.empty-icon { display: inline-flex; align-items: center; justify-content: center; width: 54px; height: 54px; border: 1px solid #dce7d5; border-radius: 16px; background: #edf4e7; color: #5d8260; margin-bottom: 16px; }
+.empty-result h3 { font-size: 16px; color: #34513f; }
+.empty-result p { font-size: 13px; max-width: 320px; margin: 10px auto 0; }
+.result-value { letter-spacing: -.035em; }
+.result-time { flex-wrap: wrap; padding: 9px 0; font-size: 12px; }
+.developer summary { font-size: 12px; color: #526d56; }
+.developer summary .lucide { margin: 0 5px 2px 3px; }
+.track .fill { transition: width .25s ease; }
+.spin { animation: icon-spin 1s linear infinite; }
+@keyframes icon-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+  button, .track .fill, .resource-links .resource-badge { transition: none; }
+}
+@media (max-width: 600px) {
+  .decision-pickers { grid-template-columns: minmax(135px, .9fr) minmax(0, 1.1fr); }
+  .resource-links { gap: 6px; }
+  .resource-links .resource-badge { font-size: 11px; padding: 6px 8px; gap: 5px; }
+  .coming-soon { font-size: 9px; }
+  .progress-heading { row-gap: 5px; }
+  .empty-result { padding: 22px 14px; }
 }
