@@ -303,23 +303,34 @@ function App() {
   ];
   return (
     <main>
-      <header>
-        <div>
-          <h1>Run an ultra-small System One model in your browser</h1>
+      <header className="hero">
+        <div className="hero-copy">
+          <div className="brand-wordmark">bekko<span>System One</span></div>
+          <h1>Ultra-small models.<br /><span>Decisions in your browser.</span></h1>
           <p className="intro">
-            Load a model that runs directly in your browser. Check a condition,
-            choose an option, or score an answer.
+            Check a condition, choose an option, or score an answer.
+            <br className="hero-break" /> Run it all locally, right in your browser.
           </p>
-        <nav className="resource-links" aria-label="Models and project resources">
-          {RESOURCE_LINKS.map(({ label, href, placeholder }) => (
-            <a key={label} className={`resource-badge ${placeholder ? "resource-placeholder" : ""}`} href={href} target="_blank" rel="noopener noreferrer">
-              {label.startsWith("🤗") ? null : label === "Technical article" ? <BookOpen size={15} aria-hidden="true" /> : <Code2 size={15} aria-hidden="true" />}
-              <span>{label}</span>{placeholder && <span className="coming-soon">Coming soon</span>}
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          ))}
-        </nav>
-
+        </div>
+        <div className="hero-resources">
+          <nav className="resource-links model-links" aria-label="Hugging Face models">
+            {RESOURCE_LINKS.filter(link => link.kind === "model").map(({ label, href }) => (
+              <a key={label} className="resource-badge" href={href} target="_blank" rel="noopener noreferrer">
+                <span>{label}</span><ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            ))}
+          </nav>
+          <nav className="project-links" aria-label="Project resources">
+            {RESOURCE_LINKS.filter(link => link.kind !== "model").map(({ label, href, placeholder }) => {
+              const Link = placeholder ? "span" : "a";
+              return (
+              <Link className="project-link" key={label} href={placeholder ? undefined : href} target={placeholder ? undefined : "_blank"} rel={placeholder ? undefined : "noopener noreferrer"}>
+                {label === "Technical article" ? <BookOpen size={15} aria-hidden="true" /> : <Code2 size={15} aria-hidden="true" />}
+                <span>{label}</span>{placeholder && <span className="coming-soon">Coming soon</span>}
+              </Link>
+              );
+            })}
+          </nav>
         </div>
       </header>
       <section className="model-panel" aria-label="Model">
