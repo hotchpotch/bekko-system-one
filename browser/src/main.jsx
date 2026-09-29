@@ -49,8 +49,10 @@ function initialForm(task, id = defaults[task]) {
 function Result({ output }) {
   const { decision, result, inferenceMilliseconds, device = "cpu" } = output;
   const candidates = decision.criteria;
-  const sorted = [...candidates].sort(
-    (a, b) => result.probabilities[b.id] - result.probabilities[a.id],
+  const winner = candidates.reduce((best, candidate) =>
+    result.probabilities[candidate.id] > result.probabilities[best.id]
+      ? candidate
+      : best,
   );
   const min = Math.min(...candidates.map((c) => c.value)),
     max = Math.max(...candidates.map((c) => c.value));
@@ -69,12 +71,6 @@ function Result({ output }) {
       : decision.task === "choice"
         ? `${percent(result.probabilities[choice.id])} probability · ${choice.description}`
         : `On a ${min}–${max} scale. A probability-weighted average of the levels below.`;
-  const display =
-    decision.task === "choice"
-      ? sorted
-      : decision.task === "score"
-        ? [...candidates].sort((a, b) => a.value - b.value)
-        : candidates;
   return (
     <>
       <div className="result-kicker">
@@ -96,10 +92,10 @@ function Result({ output }) {
           </div>
         </>
       )}
-      {display.map((c) => (
+      {candidates.map((c) => (
         <div
           key={c.id}
-          className={`probability ${c.id === sorted[0].id ? "winner" : ""}`}
+          className={`probability ${c.id === winner.id ? "winner" : ""}`}
         >
           <div className="probability-title">
             <span className="probability-name">
