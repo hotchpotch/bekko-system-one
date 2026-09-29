@@ -705,3 +705,50 @@ button {
   font-size: 13px;
   color: #20372e;
 }
+.context-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #65756a;
+  border-radius: 50%;
+  font-size: 18px;
+}
+.help-trigger:hover,
+.help-trigger:focus-visible {
+  background: #eaf0e4;
+  color: #235d40;
+}
+.help-trigger:focus-visible {
+  outline: 2px solid #90b598;
+  outline-offset: 2px;
+}
+.help-content {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: -60px;
+  width: min(280px, calc(100vw - 80px));
+  padding: 10px 12px;
+  border: 1px solid #dce4d7;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 16px #20372e24;
+  color: #20372e;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+}

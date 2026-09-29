@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Select from "react-select";
 
 export function Button({ secondary = false, className = "", ...props }) {
@@ -115,5 +115,39 @@ export function Picker({
         })}
       />
     </div>
+  );
+}
+
+export function HelpTooltip({ id, label, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="help-tooltip"
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") setOpen(true);
+      }}
+      onPointerLeave={() => setOpen(false)}
+      onBlur={() => setOpen(false)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          event.stopPropagation();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="help-trigger"
+        aria-label={label}
+        aria-describedby={id}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+      >
+        <span aria-hidden="true">ⓘ</span>
+      </button>
+      <span id={id} role="tooltip" className="help-content" hidden={!open}>
+        {children}
+      </span>
+    </span>
   );
 }

@@ -9,7 +9,7 @@ import {
   parseCriteria,
   renderDecision,
 } from "./decision.js";
-import { Button, Textarea, ModelLoadProgress, Picker } from "./ui.jsx";
+import { Button, Textarea, ModelLoadProgress, Picker, HelpTooltip } from "./ui.jsx";
 
 import { contextKeyError, contextObject } from "./context.js";
 
@@ -442,10 +442,15 @@ function App() {
               onChange={(e) => change("instruction", e.target.value)}
             />
             <div className="label-row">
-              <h3>Context</h3>
+              <div className="context-heading">
+                <h3>Context</h3>
+                <HelpTooltip id="context-help" label="Help with context fields">
+                  Each key names the value below it. Both are sent to the model.
+                  Use a unique, non-empty key.
+                </HelpTooltip>
+              </div>
               <span className="hint">The information to judge</span>
             </div>
-            <p id="context-help" className="hint">Each key names the value below it. Both are sent to the model. Use a unique, non-empty key.</p>
             <div id="state-fields">
               {form.context.map(([key, value], index) => {
                 const keyError = contextKeyError(form.context, index);
