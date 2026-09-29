@@ -925,3 +925,20 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #368357; outlin
 .large-model-notice > .lucide { margin-top: 2px; }
 .large-model-notice strong { font-size: 12px; }
 .model-panel .large-model-notice p { font-size: 11px; line-height: 1.55; margin: 4px 0 0; color: #76673e; }
+
+.model-panel { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(205px, 1fr) auto; align-items: end; column-gap: 24px; row-gap: 10px; }
+.model-panel .model-selection, .model-panel .runtime-selection { min-width: 0; }
+.model-panel .runtime-selection { margin: 0; }
+.model-panel > button, .model-panel > .loaded-badge { margin: 0; align-self: end; }
+.model-panel > #model-status, .model-panel > .large-model-notice, .model-panel > .load-progress { grid-column: 1 / -1; }
+.model-panel > #model-status { margin: 0; }
+.model-panel .large-model-notice { max-width: none; margin: 0; padding: 10px 12px; }
+.model-panel .large-model-notice p { margin-top: 2px; }
+@media (max-width: 760px) {
+  .model-panel { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .model-panel .model-selection { grid-column: 1 / -1; }
+}
+@media (max-width: 380px) {
+  .model-panel { grid-template-columns: minmax(0, 1fr); }
+  .model-panel > button, .model-panel > .loaded-badge { justify-self: start; }
+}

@@ -9,7 +9,7 @@ export const MODELS = releases.map(([value, bytes, revision]) => {
   return {
     value,
     name: `bekko-s1-v1-${value}`,
-    label: `bekko-s1-v1-${value} (${bytes >= 1e9 ? "1.4 GB download" : `size ${Math.round(bytes / 1e6)} MB`})`,
+    label: `bekko-s1-v1-${value} (size ${Math.round(bytes / 1e6)} MB)`,
     repository,
     bytes,
     revision,

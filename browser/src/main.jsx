@@ -334,28 +334,7 @@ function App() {
             options={MODELS}
             onChange={switchModel}
           />
-          <p
-            id="model-status"
-            role="status"
-            className={loadedBytes !== null ? "loaded" : ""}
-          >
-            {loadedBytes !== null
-              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · ${deviceLabel(device)}`
-              : busy
-                ? status
-                : "Not loaded yet. Your first run loads the model automatically."}
-          </p>
-          {model.bytes >= 1e9 && (
-            <div className="large-model-notice">
-              <HardDriveDownload size={18} aria-hidden="true" />
-              <div>
-                <strong>Large model · 1.4 GB download</strong>
-                <p>{loadedBytes === null
-                  ? "Loading or running this model downloads about 1.4 GB. It also needs substantial memory. Try 17m or 68m for a lighter download."
-                  : "This model uses substantial memory. Switching models or reloading the page may require another 1.4 GB download."}</p>
-              </div>
-            </div>
-          )}
+
         </div>
         <div className="runtime-selection">
           <fieldset
@@ -413,6 +392,28 @@ function App() {
         ) : (
           <span className="loaded-badge"><CircleCheck size={17} aria-hidden="true" /> Loaded · Ready to run</span>
         )}
+          <p
+            id="model-status"
+            role="status"
+            className={loadedBytes !== null ? "loaded" : ""}
+          >
+            {loadedBytes !== null
+              ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · ${deviceLabel(device)}`
+              : busy
+                ? status
+                : "Not loaded yet. Your first run loads the model automatically."}
+          </p>
+          {model.bytes >= 1e9 && (
+            <div className="large-model-notice">
+              <HardDriveDownload size={18} aria-hidden="true" />
+              <div>
+                <strong>Large model · 1.4 GB download</strong>
+                <p>{loadedBytes === null
+                  ? "Downloads about 1.4 GB and needs substantial memory. Choose 17m or 68m for a lighter download."
+                  : "This model uses substantial memory. Switching models or reloading the page may require another 1.4 GB download."}</p>
+              </div>
+            </div>
+          )}
         {busy && loadedBytes === null && (
           <ModelLoadProgress files={files} status={status} expectedBytes={model.bytes} />
         )}
