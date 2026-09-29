@@ -121,9 +121,6 @@ function Result({ output }) {
       ))}
       <p className="result-time">
         Inference: {inferenceMilliseconds.toFixed(1)} ms · {deviceLabel(device)}
-        {device === "webgpu"
-          ? " (CPU fallback for unsupported operations)"
-          : " on your device"}
       </p>
     </>
   );
@@ -140,6 +137,7 @@ function App() {
     clear();
   }
   const [device, setDevice] = useState("cpu");
+  const deviceChosen = useRef(false);
   const [gpu, setGpu] = useState({
     available: false,
     reason: "Checking WebGPU availability…",
@@ -147,13 +145,17 @@ function App() {
   useEffect(() => {
     let active = true;
     detectWebGPU().then((support) => {
-      if (active) setGpu(support);
+      if (active) {
+        setGpu(support);
+        if (!deviceChosen.current) setDevice(support.available ? "webgpu" : "cpu");
+      }
     });
     return () => {
       active = false;
     };
   }, []);
   function switchDevice(next) {
+    deviceChosen.current = true;
     worker.current?.terminate();
     worker.current = null;
     setDevice(next);
@@ -245,6 +247,7 @@ function App() {
     return current;
   }
   function start(loadOnly = false) {
+    deviceChosen.current = true;
     try {
       setError("");
       let decision;
@@ -321,10 +324,17 @@ function App() {
         <div className="runtime-selection">
           <fieldset
             className="runtime-radios"
-            disabled={busy}
             aria-describedby="runtime-help"
           >
-            <legend>Inference device</legend>
+            <legend>
+              <span className="runtime-heading">
+                Inference device
+                <HelpTooltip id="runtime-help" label="Help with inference devices">
+                  {gpu.reason} WebGPU is selected automatically when available.
+                  Unsupported operations may run on CPU. Switching devices reloads the model.
+                </HelpTooltip>
+              </span>
+            </legend>
             <div className="runtime-options">
               {[
                 ["cpu", "CPU"],
@@ -339,7 +349,8 @@ function App() {
                     name="runtime"
                     value={value}
                     checked={device === value}
-                    disabled={value === "webgpu" && !gpu.available}
+                    onClick={() => { deviceChosen.current = true; }}
+                    disabled={busy || (value === "webgpu" && !gpu.available)}
                     onChange={() => switchDevice(value)}
                   />
                   <span>{label}</span>
@@ -347,15 +358,7 @@ function App() {
               ))}
             </div>
           </fieldset>
-          <p id="runtime-help" className="hint">
-            {gpu.reason}
-          </p>
-          {device === "webgpu" && (
-            <p className="hint">
-              Unsupported operations run on CPU. Switching devices reloads the
-              model.
-            </p>
-          )}
+
         </div>
         {loadedBytes === null ? (
           <Button

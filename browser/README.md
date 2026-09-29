@@ -45,13 +45,14 @@ heads. Each directory contains `model_int8.onnx`, `manifest.json`,
 file, hashes, quantization policy, task heads, and token budgets.
 
 Use **Load model** to preload, or run an example to load automatically.
-File progress shows received bytes; initialization is displayed separately.
+A compact progress bar shows received bytes; initialization is displayed separately.
 Switching model or execution device releases the current worker and loads the
 new session on the next run. Failed downloads can be retried.
 
 ## Inference device
 
-Choose **CPU** (the default) or **WebGPU**. WebGPU requires HTTPS or localhost
+Choose **CPU** or **WebGPU**. WebGPU is selected initially when an adapter is
+available; otherwise CPU is selected. WebGPU requires HTTPS or localhost
 and a usable GPU adapter. The interface explains when it is unavailable.
 Unsupported GPU operations can use CPU assistance. If WebGPU fails, select CPU
 and retry. Speed depends on your device and input length.
@@ -129,7 +130,14 @@ Score requires distinct finite numeric values.
 
 ## Verification
 
-`npm test` checks input parsing, device detection, downloads, and runtime parity.
+From a fresh checkout, run the checks that do not need model files:
+
+```sh
+node --test test/context.test.js test/decision.test.js test/download.test.js test/inference-time.test.js test/runtime-assets.test.js test/runtime.test.js
+npm run build
+```
+
+`npm test` also checks runtime parity and requires generated model files.
 Local parity tests require the FP32 export in `public/model/` and its
 embedding-INT8 variant in `public/model/quantized/embedding-int8/`.
 For any other export directory, use `scripts/verify-export.js` as shown above.
@@ -161,18 +169,17 @@ With the Hugging Face CLI (`hf`) installed and authenticated via `hf auth login`
 or `HF_TOKEN`, export and deploy in one command:
 
 ```sh
-npm run deploy:space -- hotchpotch/bekko-system-one-in-browser
+npm run deploy:space -- YOUR_ACCOUNT/YOUR_SPACE
 ```
 
 The script creates a **private Static Space**, or verifies that an existing Space
-is private and static before uploading. It never switches visibility. The Space
-name above is the default when no argument is given. Uploaded assets use hashed
+is private and static before uploading. It never switches visibility. Always pass your own Space ID; omitting it uses the maintainer's default Space. Uploaded assets use hashed
 filenames; previous assets are retained so existing browser sessions keep working.
 
 Check deployment status with:
 
 ```sh
-hf spaces wait hotchpotch/bekko-system-one-in-browser --timeout 5m
+hf spaces wait YOUR_ACCOUNT/YOUR_SPACE --timeout 5m
 ```
 
 The app downloads models directly from the pinned public Hub revision. No Python

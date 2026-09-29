@@ -1,6 +1,7 @@
 // Open the preview, then run with playwright-cli. Downloads both public models.
 async (page) => {
   await page.reload();
+  await page.getByRole("radio", {name:"CPU", exact:true}).click();
   const select=async(id,name)=>{await page.locator(`#${id}`).press('ArrowDown');await page.getByRole('option',{name,exact:true}).click();};
   const rows=[];
   for(const model of ['Bekko 17M · 29 MB','Bekko 68M · 196 MB']) {

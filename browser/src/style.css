@@ -770,3 +770,46 @@ footer p {
   outline: 2px solid #90b598;
   outline-offset: 3px;
 }
+
+.runtime-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.help-trigger {
+  width: 24px;
+  height: 24px;
+}
+.runtime-selection .help-content {
+  left: -130px;
+  right: auto;
+}
+.load-progress {
+  padding-top: 8px;
+}
+.load-progress .progress-heading {
+  justify-content: space-between;
+  font-size: 12px;
+  gap: 8px;
+}
+.progress-amount {
+  color: #65756a;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.load-progress progress {
+  height: 4px;
+  margin-top: 6px;
+}
+.runtime-options {
+  gap: 16px;
+}
+.runtime-option {
+  flex: none;
+  border: 0;
+  padding: 3px 0;
+  background: transparent;
+}
+.runtime-option.selected {
+  background: transparent;
+}

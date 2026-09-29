@@ -68,43 +68,19 @@ export function Progress({ value, label }) {
 export function ModelLoadProgress({ files, status }) {
   const list = Object.entries(files);
   const loaded = list.reduce((sum, [, file]) => sum + file.loaded, 0);
+  const model = list.find(([name]) => name.endsWith(".onnx"))?.[1];
+  const preparing = status.startsWith("Preparing");
+  const value = !preparing && model?.total ? Math.min(100, model.loaded / model.total * 100) : null;
   return (
     <div className="load-progress" aria-label="Model loading progress">
       <div className="progress-heading">
-        <span className="spinner" aria-hidden="true" />
-        <strong>{status}</strong>
+        <span>{preparing ? "Preparing model…" : "Downloading model…"}</span>
+        <span className="progress-amount">
+          {preparing ? "Almost ready" : `${(loaded / 1e6).toFixed(1)} MB received`}
+          {value != null && ` · ${Math.floor(value)}%`}
+        </span>
       </div>
-      <p className="hint">
-        {(loaded / 1e6).toFixed(1)} MB received · model and tokenizer
-      </p>
-      {list.map(([name, file]) => (
-        <div className="file-progress" key={name}>
-          <div>
-            <span>{name}</span>
-            <span>
-              {file.done
-                ? "Done"
-                : file.total
-                  ? `${Math.floor((file.loaded / file.total) * 100)}%`
-                  : `${(file.loaded / 1e6).toFixed(1)} MB`}
-            </span>
-          </div>
-          <Progress
-            label={`Download ${name}`}
-            value={
-              file.done
-                ? 100
-                : file.total
-                  ? (file.loaded / file.total) * 100
-                  : null
-            }
-          />
-        </div>
-      ))}
-      <p className="hint">
-        First use also loads the CPU runtime. Downloads can finish before the
-        model is ready.
-      </p>
+      <Progress label={preparing ? "Preparing inference runtime" : "Model download"} value={value} />
     </div>
   );
 }
@@ -173,7 +149,11 @@ export function HelpTooltip({ id, label, children }) {
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
       >
-        <span aria-hidden="true">ⓘ</span>
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6" />
+          <circle cx="12" cy="7.5" r=".9" fill="currentColor" stroke="none" />
+        </svg>
       </button>
       <span id={id} role="tooltip" className="help-content" hidden={!open}>
         {children}
