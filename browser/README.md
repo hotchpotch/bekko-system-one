@@ -21,7 +21,10 @@ npm run preview
 ```
 
 Serve all of `dist/` over HTTP(S), not `file://`. No inference server is needed.
-Model weights are fetched on demand, not included in the static build. The first
+Model weights are fetched on demand, not included in the static build.
+The ONNX Runtime WASM binary is fetched from jsDelivr at the exact pinned
+`onnxruntime-web` version, without authentication. This also works when the
+static app is hosted in a private Space. The first
 run needs network access to Hugging Face; subsequent requests depend on normal
 browser HTTP caching. The current page reuses its loaded inference session.
 

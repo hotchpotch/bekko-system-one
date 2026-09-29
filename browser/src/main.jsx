@@ -216,6 +216,11 @@ function App() {
         return;
       }
       if (data.error) {
+        // ORT keeps failed initialization state; retry with a fresh worker.
+        current.terminate();
+        worker.current = null;
+        setLoadedBytes(null);
+        setFiles({});
         fail(
           `${data.error}${device === "webgpu" ? " Try CPU if WebGPU cannot run this model on your device." : ""}`,
         );

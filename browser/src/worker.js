@@ -1,5 +1,5 @@
 import * as ort from "onnxruntime-web/webgpu";
-import wasmUrl from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
+import { WASM_URL } from "./runtime-assets.js";
 import mjsSource from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?raw";
 import { download } from "./download.js";
 import { renderDecision } from "./decision.js";
@@ -13,8 +13,8 @@ ort.env.wasm.wasmPaths = { mjs: runtimeModuleUrl };
 let wasmReady = false;
 async function prepareWasm() {
   if (wasmReady) return;
-  const response = await fetch(wasmUrl, { credentials: "same-origin" });
-  if (!response.ok) throw Error(`Could not load inference runtime (HTTP ${response.status}). Reload the page and check your Space access.`);
+  const response = await fetch(WASM_URL, { credentials: "omit" });
+  if (!response.ok) throw Error(`Could not load inference runtime (HTTP ${response.status}). Check your connection to the public runtime CDN and retry.`);
   ort.env.wasm.wasmBinary = await response.arrayBuffer();
   wasmReady = true;
 }
