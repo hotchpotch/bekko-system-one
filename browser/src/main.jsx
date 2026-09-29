@@ -285,9 +285,10 @@ function App() {
           <div className="eyebrow">
             <span className="dot" /> BEKKO · ON-DEVICE AI
           </div>
-          <h1>Local decisions</h1>
+          <h1>Run an ultra-small System One model in your browser</h1>
           <p className="intro">
-            Check a condition, choose an option, or score an answer.
+            Load a model that runs directly in your browser. Check a condition,
+            choose an option, or score an answer.
           </p>
         </div>
         <span className="badge">
@@ -314,7 +315,7 @@ function App() {
               ? `Model loaded · ${(loadedBytes / 1e6).toFixed(1)} MB · ${deviceLabel(device)}`
               : busy
                 ? status
-                : "Not downloaded yet. Your first run loads the model automatically."}
+                : "Not loaded yet. Your first run loads the model automatically."}
           </p>
         </div>
         <div className="runtime-selection">
@@ -366,11 +367,11 @@ function App() {
             {busy
               ? "Loading…"
               : error
-                ? "Retry download"
-                : "Download model now"}
+                ? "Retry loading"
+                : "Load model"}
           </Button>
         ) : (
-          <span className="loaded-badge">✓ Downloaded · Ready to run</span>
+          <span className="loaded-badge">✓ Loaded · Ready to run</span>
         )}
         {busy && loadedBytes === null && (
           <ModelLoadProgress files={files} status={status} />
