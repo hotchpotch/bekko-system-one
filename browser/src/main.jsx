@@ -18,9 +18,9 @@ import { detectWebGPU, deviceLabel } from "./runtime.js";
 const pretty = (value) => JSON.stringify(value, null, 2);
 const percent = (value) => `${(value * 100).toFixed(1)}%`;
 const defaults = {
-  noul: "email-bulk-offer",
+  noul: "email-project-update",
   choice: "support-password",
-  score: "return-help-complete",
+  score: "travel-passport-full",
 };
 const tasks = { noul: "Noul (Yes/No)", choice: "Choice", score: "Score" };
 function initialForm(task, id = defaults[task]) {

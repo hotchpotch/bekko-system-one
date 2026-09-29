@@ -1,26 +1,5 @@
 [
   {
-    "id": "email-bulk-offer",
-    "title": "Filter an unsolicited sales pitch",
-    "category": "Email triage",
-    "task": "noul",
-    "instruction": "Is this email unsolicited spam or bulk marketing?",
-    "state": {
-      "subject": "Exclusive deal for business owners",
-      "body": "Dear business owner, buy our premium office software today at 85% off! This limited offer is sent to thousands of companies. Click now and claim your discount before midnight."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The email is unsolicited spam or bulk marketing."
-      },
-      {
-        "id": "false",
-        "description": "The email is not unsolicited spam or bulk marketing."
-      }
-    ]
-  },
-  {
     "id": "email-project-update",
     "title": "Keep a project update from a colleague",
     "category": "Email triage",
@@ -28,28 +7,7 @@
     "instruction": "Is this email unsolicited spam or bulk marketing?",
     "state": {
       "subject": "Revised delivery plan",
-      "body": "Hi Avery, I updated our delivery plan after this morning's meeting. Please check the dates in the attached spreadsheet before I send it to the client. Thanks, Morgan."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The email is unsolicited spam or bulk marketing."
-      },
-      {
-        "id": "false",
-        "description": "The email is not unsolicited spam or bulk marketing."
-      }
-    ]
-  },
-  {
-    "id": "email-prize",
-    "title": "Filter a fake prize announcement",
-    "category": "Email triage",
-    "task": "noul",
-    "instruction": "Is this email unsolicited spam or bulk marketing?",
-    "state": {
-      "subject": "Your email address has won a prize",
-      "body": "Congratulations! Your email was randomly selected for a cash prize of $750,000. Reply with your bank details and pay a small processing fee to claim your winnings today."
+      "body": "Hi Avery, following our planning meeting this morning, I moved the equipment delivery from Wednesday to Friday because the client will be away. The attached spreadsheet contains the revised dates and the same purchase order we approved last week. Please check the two highlighted rows before I send the schedule to the client. There is no new purchase to approve. We can discuss any problems at our usual afternoon call. Thanks, Morgan."
     },
     "criteria": [
       {
@@ -70,7 +28,7 @@
     "instruction": "Is this email unsolicited spam or bulk marketing?",
     "state": {
       "subject": "Invoice for the equipment you ordered",
-      "body": "Hi Avery, here is the invoice you requested for the six monitors delivered to your office yesterday. The purchase order number is PO-7318. Please let me know if you need a different billing address."
+      "body": "Hi Avery, attached is the invoice you requested during our call for the six monitors delivered to your office yesterday. It uses purchase order PO-7318 and the billing address your accounts team confirmed. The delivery charge is already included in the agreed total; there are no additional products to buy. Please forward the invoice to accounts payable when convenient. If the reference number needs correcting, reply to this thread and I will update the document."
     },
     "criteria": [
       {
@@ -84,35 +42,35 @@
     ]
   },
   {
+    "id": "paraphrase-transfer",
+    "title": "Same people, opposite money transfer",
+    "category": "Meaning and paraphrases",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "After their Saturday lunch at the station cafe, Nina transferred thirty dollars from her bank account to Owen to repay the concert ticket he had bought for her. They then walked together to the bus stop.",
+      "sentence2": "After their Saturday lunch at the station cafe, Owen transferred thirty dollars from his bank account to Nina to repay the concert ticket she had bought for him. They then walked together to the bus stop."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The two sentences express the same meaning."
+      },
+      {
+        "id": "false",
+        "description": "The two sentences do not express the same meaning."
+      }
+    ]
+  },
+  {
     "id": "policy-receipt-required",
     "title": "Check whether an expense needs a receipt",
     "category": "Policy lookup",
     "task": "noul",
     "instruction": "Is the statement supported by the policy?",
     "state": {
-      "policy": "Employees must attach a receipt to every expense claim. Claims without receipts are rejected.",
+      "policy": "Employees must attach a receipt to every expense claim. Claims without receipts are rejected. A description of the purchase can be added as a note but does not replace the receipt.",
       "statement": "Employees must submit receipts with expense claims."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The policy supports the statement."
-      },
-      {
-        "id": "false",
-        "description": "The policy contradicts the statement."
-      }
-    ]
-  },
-  {
-    "id": "policy-remote-work",
-    "title": "Check whether remote work is permitted",
-    "category": "Policy lookup",
-    "task": "noul",
-    "instruction": "Is the statement supported by the policy?",
-    "state": {
-      "policy": "Staff may work from home on Tuesdays and Thursdays. Office attendance is required on Mondays, Wednesdays, and Fridays.",
-      "statement": "Employees can work from home on Thursday."
     },
     "criteria": [
       {
@@ -132,7 +90,7 @@
     "task": "noul",
     "instruction": "Is the statement supported by the policy?",
     "state": {
-      "policy": "The reporting tool lets users download each report as a CSV or PDF file.",
+      "policy": "The reporting tool lets users download each report as a CSV or PDF file. Reports are refreshed every morning, while the previous day remains available in the history tab.",
       "statement": "Reports can be downloaded as CSV files."
     },
     "criteria": [
@@ -147,76 +105,13 @@
     ]
   },
   {
-    "id": "paraphrase-transfer",
-    "title": "Same people, opposite money transfer",
-    "category": "Meaning and paraphrases",
-    "task": "noul",
-    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
-    "state": {
-      "sentence1": "Nina transferred thirty dollars to Owen.",
-      "sentence2": "Owen transferred thirty dollars to Nina."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The two sentences express the same meaning."
-      },
-      {
-        "id": "false",
-        "description": "The two sentences do not express the same meaning."
-      }
-    ]
-  },
-  {
-    "id": "paraphrase-pets",
-    "title": "Similar words, different pet owners",
-    "category": "Meaning and paraphrases",
-    "task": "noul",
-    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
-    "state": {
-      "sentence1": "The red-haired boy owns the cat, and the girl owns the dog.",
-      "sentence2": "The girl owns the cat, and the red-haired boy owns the dog."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The two sentences express the same meaning."
-      },
-      {
-        "id": "false",
-        "description": "The two sentences do not express the same meaning."
-      }
-    ]
-  },
-  {
-    "id": "rule-bird-negative",
-    "title": "Spot a conclusion that breaks a rule",
-    "category": "Facts and simple reasoning",
-    "task": "noul",
-    "instruction": "Does the premise support the hypothesis?",
-    "state": {
-      "premise": "All sparrows are birds. Pip is a sparrow.",
-      "hypothesis": "Pip is not a bird."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The premise supports the hypothesis."
-      },
-      {
-        "id": "false",
-        "description": "The premise does not support the hypothesis."
-      }
-    ]
-  },
-  {
     "id": "reading-submarine",
     "title": "Check a conflicting science claim",
     "category": "Facts and simple reasoning",
     "task": "noul",
     "instruction": "Does the premise support the hypothesis?",
     "state": {
-      "premise": "A submarine travels underwater. It does not fly through the air.",
+      "premise": "A submarine travels underwater. It does not fly through the air. Visitors can walk through a retired submarine at the dock and see its narrow sleeping quarters and control room.",
       "hypothesis": "A submarine flies through the air."
     },
     "criteria": [
@@ -231,62 +126,13 @@
     ]
   },
   {
-    "id": "paraphrase-bicycle",
-    "title": "Same bicycle purchase, different word order",
-    "category": "Meaning and paraphrases",
-    "task": "noul",
-    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
-    "state": {
-      "sentence1": "Mira bought a blue bicycle yesterday.",
-      "sentence2": "Yesterday, Mira bought a blue bicycle."
-    },
-    "criteria": [
-      {
-        "id": "true",
-        "description": "The two sentences express the same meaning."
-      },
-      {
-        "id": "false",
-        "description": "The two sentences do not express the same meaning."
-      }
-    ]
-  },
-  {
-    "id": "bank-lost-card",
-    "title": "Route a lost bank card report",
-    "category": "Banking support",
-    "task": "choice",
-    "instruction": "Identify the banking intent expressed by the customer.",
-    "state": {
-      "utterance": "I left my wallet in a taxi and my bank card was inside. I need to report the card as lost."
-    },
-    "criteria": [
-      {
-        "id": "Lost card",
-        "description": "The customer has lost their bank card and needs to report it."
-      },
-      {
-        "id": "Change PIN",
-        "description": "The customer wants to change their card PIN."
-      },
-      {
-        "id": "Cash withdrawal",
-        "description": "The customer wants to withdraw cash from an ATM."
-      },
-      {
-        "id": "Card declined",
-        "description": "A card payment was declined."
-      }
-    ]
-  },
-  {
     "id": "bank-pin",
     "title": "Route a card PIN change",
     "category": "Banking support",
     "task": "choice",
     "instruction": "Identify the banking intent expressed by the customer.",
     "state": {
-      "utterance": "I remember my current card PIN, but I would like to change it to a different number. How do I do that?"
+      "utterance": "My card works normally in shops and at cash machines, and I remember the current PIN. However, someone standing close to me may have seen me enter it yesterday. The card is still in my wallet and I have checked that there are no unfamiliar transactions. I would like to change the existing PIN to a different number. How can I do that?"
     },
     "criteria": [
       {
@@ -304,236 +150,6 @@
       {
         "id": "Card declined",
         "description": "A card payment was declined."
-      }
-    ]
-  },
-  {
-    "id": "bank-declined",
-    "title": "Route a declined card payment",
-    "category": "Banking support",
-    "task": "choice",
-    "instruction": "Identify the banking intent expressed by the customer.",
-    "state": {
-      "utterance": "My card payment was declined at a shop. Why was my payment rejected?"
-    },
-    "criteria": [
-      {
-        "id": "Lost card",
-        "description": "The customer has lost their bank card and needs to report it."
-      },
-      {
-        "id": "Change PIN",
-        "description": "The customer wants to change their card PIN."
-      },
-      {
-        "id": "Cash withdrawal",
-        "description": "The customer wants to withdraw cash from an ATM."
-      },
-      {
-        "id": "Card declined",
-        "description": "A card payment was declined."
-      }
-    ]
-  },
-  {
-    "id": "feedback-positive",
-    "title": "Flag a satisfied customer",
-    "category": "Customer feedback",
-    "task": "choice",
-    "instruction": "Classify the sentiment of this customer feedback.",
-    "state": {
-      "review": "The replacement arrived the next morning. Your support team was kind, helpful, and solved my problem perfectly. Thank you!"
-    },
-    "criteria": [
-      {
-        "id": "Positive",
-        "description": "The customer expresses satisfaction with the product or service."
-      },
-      {
-        "id": "Negative",
-        "description": "The customer expresses dissatisfaction with the product or service."
-      },
-      {
-        "id": "Neutral",
-        "description": "The customer states facts without expressing satisfaction or dissatisfaction."
-      }
-    ]
-  },
-  {
-    "id": "feedback-negative",
-    "title": "Flag a frustrated customer",
-    "category": "Customer feedback",
-    "task": "choice",
-    "instruction": "Classify the sentiment of this customer feedback.",
-    "state": {
-      "review": "The app crashes every time I open an invoice. Support has ignored three emails. This service is a waste of money."
-    },
-    "criteria": [
-      {
-        "id": "Positive",
-        "description": "The customer expresses satisfaction with the product or service."
-      },
-      {
-        "id": "Negative",
-        "description": "The customer expresses dissatisfaction with the product or service."
-      },
-      {
-        "id": "Neutral",
-        "description": "The customer states facts without expressing satisfaction or dissatisfaction."
-      }
-    ]
-  },
-  {
-    "id": "support-password",
-    "title": "Route a forgotten-password request",
-    "category": "Customer support routing",
-    "task": "choice",
-    "instruction": "Which support team should handle this customer request?",
-    "state": {
-      "message": "I forgot my password for the customer portal. How can I reset it so I can sign in again?"
-    },
-    "criteria": [
-      {
-        "id": "Password reset",
-        "description": "The user cannot sign in and needs to reset a forgotten password."
-      },
-      {
-        "id": "Refund request",
-        "description": "The user wants their money back for a purchase."
-      },
-      {
-        "id": "Delivery tracking",
-        "description": "The user wants to locate an order or check its delivery status."
-      },
-      {
-        "id": "Cancel subscription",
-        "description": "The user wants to stop a recurring subscription."
-      }
-    ]
-  },
-  {
-    "id": "support-refund",
-    "title": "Route a refund request",
-    "category": "Customer support routing",
-    "task": "choice",
-    "instruction": "Which support team should handle this customer request?",
-    "state": {
-      "message": "The headphones I ordered arrived broken. Please refund the purchase price to my card."
-    },
-    "criteria": [
-      {
-        "id": "Password reset",
-        "description": "The user cannot sign in and needs to reset a forgotten password."
-      },
-      {
-        "id": "Refund request",
-        "description": "The user wants their money back for a purchase."
-      },
-      {
-        "id": "Delivery tracking",
-        "description": "The user wants to locate an order or check its delivery status."
-      },
-      {
-        "id": "Cancel subscription",
-        "description": "The user wants to stop a recurring subscription."
-      }
-    ]
-  },
-  {
-    "id": "support-delivery",
-    "title": "Route a missing-delivery inquiry",
-    "category": "Customer support routing",
-    "task": "choice",
-    "instruction": "Which support team should handle this customer request?",
-    "state": {
-      "message": "My package was supposed to arrive yesterday. Can you send me the tracking link and tell me where it is?"
-    },
-    "criteria": [
-      {
-        "id": "Password reset",
-        "description": "The user cannot sign in and needs to reset a forgotten password."
-      },
-      {
-        "id": "Refund request",
-        "description": "The user wants their money back for a purchase."
-      },
-      {
-        "id": "Delivery tracking",
-        "description": "The user wants to locate an order or check its delivery status."
-      },
-      {
-        "id": "Cancel subscription",
-        "description": "The user wants to stop a recurring subscription."
-      }
-    ]
-  },
-  {
-    "id": "support-cancel",
-    "title": "Route a subscription cancellation",
-    "category": "Customer support routing",
-    "task": "choice",
-    "instruction": "Which support team should handle this customer request?",
-    "state": {
-      "message": "I want to cancel my subscription and close my membership. Please stop the recurring billing."
-    },
-    "criteria": [
-      {
-        "id": "Password reset",
-        "description": "The user cannot sign in and needs to reset a forgotten password."
-      },
-      {
-        "id": "Refund request",
-        "description": "The user wants their money back for a purchase."
-      },
-      {
-        "id": "Delivery tracking",
-        "description": "The user wants to locate an order or check its delivery status."
-      },
-      {
-        "id": "Cancel subscription",
-        "description": "The user wants to stop a recurring subscription."
-      }
-    ]
-  },
-  {
-    "id": "grammar-tense",
-    "title": "Choose a grammatical past-tense sentence",
-    "category": "English grammar",
-    "task": "choice",
-    "instruction": "Which sentence is grammatically acceptable in English?",
-    "state": {},
-    "criteria": [
-      {
-        "id": "A",
-        "description": "Yesterday, Mara goed to the library."
-      },
-      {
-        "id": "B",
-        "description": "Yesterday, Mara went to the library."
-      }
-    ]
-  },
-  {
-    "id": "cause-rain",
-    "title": "Explain why a sidewalk is wet",
-    "category": "Knowledge and reasoning",
-    "task": "choice",
-    "instruction": "Choose the best answer to the question.",
-    "state": {
-      "question": "It rained heavily overnight. In the morning the uncovered sidewalk was wet. What is the most likely cause?"
-    },
-    "criteria": [
-      {
-        "id": "Rain",
-        "description": "Rain fell on the sidewalk."
-      },
-      {
-        "id": "Paint",
-        "description": "Someone painted the sky."
-      },
-      {
-        "id": "Sun",
-        "description": "The sun dried the sidewalk."
       }
     ]
   },
@@ -544,7 +160,7 @@
     "task": "choice",
     "instruction": "Which topic best describes the article?",
     "state": {
-      "article": "The swimmer broke the national record in the final and won two gold medals at the championship."
+      "article": "A new video analysis system helped the coaching team review the swimmers before the national championship. In the final, a nineteen-year-old swimmer broke the national record and finished ahead of the defending champion. She ended the competition with two gold medals and one silver. Her coach praised the months of training, while the crowd applauded as the medal ceremony began. The team will now prepare for the international meet next summer."
     },
     "criteria": [
       {
@@ -572,7 +188,7 @@
     "task": "choice",
     "instruction": "Which topic best describes the article?",
     "state": {
-      "article": "Astronomers detected water vapor in the atmosphere of a distant planet using a space telescope."
+      "article": "A telescope funded by several national governments has detected water vapor in the atmosphere of a distant planet. Astronomers examined changes in the light passing through the atmosphere during repeated observations. The researchers said the result does not prove that life exists there, but it gives them a way to study the planet\u2019s chemistry. They plan to compare the measurements with computer models and publish the full analysis after independent review."
     },
     "criteria": [
       {
@@ -594,28 +210,166 @@
     ]
   },
   {
-    "id": "science-root",
-    "title": "Which plant part absorbs water?",
-    "category": "Knowledge and reasoning",
+    "id": "bank-lost-card",
+    "title": "Route a lost bank card report",
+    "category": "Banking support",
     "task": "choice",
-    "instruction": "Which part of a plant absorbs water from the soil?",
-    "state": {},
+    "instruction": "Identify the banking intent expressed by the customer.",
+    "state": {
+      "utterance": "I left my wallet in a taxi and my bank card was inside. I need to report the card as lost. I need to report the card as lost and prevent anyone who finds the wallet from using it."
+    },
     "criteria": [
       {
-        "id": "Roots",
-        "description": "The roots"
+        "id": "Lost card",
+        "description": "The customer has lost their bank card and needs to report it."
       },
       {
-        "id": "Flowers",
-        "description": "The flowers"
+        "id": "Change PIN",
+        "description": "The customer wants to change their card PIN."
       },
       {
-        "id": "Seeds",
-        "description": "The seeds"
+        "id": "Cash withdrawal",
+        "description": "The customer wants to withdraw cash from an ATM."
       },
       {
-        "id": "Fruit",
-        "description": "The fruit"
+        "id": "Card declined",
+        "description": "A card payment was declined."
+      }
+    ]
+  },
+  {
+    "id": "bank-declined",
+    "title": "Route a declined card payment",
+    "category": "Banking support",
+    "task": "choice",
+    "instruction": "Identify the banking intent expressed by the customer.",
+    "state": {
+      "utterance": "My card payment was declined at a shop. Why was my payment rejected? Can you explain why this card payment was rejected?"
+    },
+    "criteria": [
+      {
+        "id": "Lost card",
+        "description": "The customer has lost their bank card and needs to report it."
+      },
+      {
+        "id": "Change PIN",
+        "description": "The customer wants to change their card PIN."
+      },
+      {
+        "id": "Cash withdrawal",
+        "description": "The customer wants to withdraw cash from an ATM."
+      },
+      {
+        "id": "Card declined",
+        "description": "A card payment was declined."
+      }
+    ]
+  },
+  {
+    "id": "feedback-positive",
+    "title": "Flag a satisfied customer",
+    "category": "Customer feedback",
+    "task": "choice",
+    "instruction": "Classify the sentiment of this customer feedback.",
+    "state": {
+      "review": "The replacement arrived the next morning. Your support team was kind, helpful, and solved my problem perfectly. Thank you! I am very happy with the service and would confidently order again."
+    },
+    "criteria": [
+      {
+        "id": "Positive",
+        "description": "The customer expresses satisfaction with the product or service."
+      },
+      {
+        "id": "Negative",
+        "description": "The customer expresses dissatisfaction with the product or service."
+      },
+      {
+        "id": "Neutral",
+        "description": "The customer states facts without expressing satisfaction or dissatisfaction."
+      }
+    ]
+  },
+  {
+    "id": "support-password",
+    "title": "Route a forgotten-password request",
+    "category": "Customer support routing",
+    "task": "choice",
+    "instruction": "Which support team should handle this customer request?",
+    "state": {
+      "message": "I forgot my password for the customer portal. How can I reset it so I can sign in again? Please tell me how to reset the password so I can sign in again."
+    },
+    "criteria": [
+      {
+        "id": "Password reset",
+        "description": "The user cannot sign in and needs to reset a forgotten password."
+      },
+      {
+        "id": "Refund request",
+        "description": "The user wants their money back for a purchase."
+      },
+      {
+        "id": "Delivery tracking",
+        "description": "The user wants to locate an order or check its delivery status."
+      },
+      {
+        "id": "Cancel subscription",
+        "description": "The user wants to stop a recurring subscription."
+      }
+    ]
+  },
+  {
+    "id": "support-delivery",
+    "title": "Route a missing-delivery inquiry",
+    "category": "Customer support routing",
+    "task": "choice",
+    "instruction": "Which support team should handle this customer request?",
+    "state": {
+      "message": "My package was supposed to arrive yesterday. Can you send me the tracking link and tell me where it is? Could you send me a working tracking link and tell me where the package is now?"
+    },
+    "criteria": [
+      {
+        "id": "Password reset",
+        "description": "The user cannot sign in and needs to reset a forgotten password."
+      },
+      {
+        "id": "Refund request",
+        "description": "The user wants their money back for a purchase."
+      },
+      {
+        "id": "Delivery tracking",
+        "description": "The user wants to locate an order or check its delivery status."
+      },
+      {
+        "id": "Cancel subscription",
+        "description": "The user wants to stop a recurring subscription."
+      }
+    ]
+  },
+  {
+    "id": "support-cancel",
+    "title": "Route a subscription cancellation",
+    "category": "Customer support routing",
+    "task": "choice",
+    "instruction": "Which support team should handle this customer request?",
+    "state": {
+      "message": "The service itself works, but I no longer need it because my project has ended. I am not asking for a refund for the month I already used. Please cancel my subscription, close my membership, and make sure the recurring payment is stopped before the next billing date."
+    },
+    "criteria": [
+      {
+        "id": "Password reset",
+        "description": "The user cannot sign in and needs to reset a forgotten password."
+      },
+      {
+        "id": "Refund request",
+        "description": "The user wants their money back for a purchase."
+      },
+      {
+        "id": "Delivery tracking",
+        "description": "The user wants to locate an order or check its delivery status."
+      },
+      {
+        "id": "Cancel subscription",
+        "description": "The user wants to stop a recurring subscription."
       }
     ]
   },
@@ -626,7 +380,7 @@
     "task": "choice",
     "instruction": "Which emotion is most clearly expressed in the message?",
     "state": {
-      "message": "I got accepted into my first-choice university! I cannot stop smiling and I want to celebrate with everyone."
+      "message": "I got accepted into my first-choice university! I cannot stop smiling and I want to celebrate with everyone. I want to celebrate with everyone tonight!"
     },
     "criteria": [
       {
@@ -648,103 +402,29 @@
     ]
   },
   {
-    "id": "claim-contradicted",
-    "title": "A claim contradicted by a short passage",
-    "category": "Evidence checking",
-    "task": "choice",
-    "instruction": "Does the premise entail, contradict, or leave the hypothesis undetermined?",
-    "state": {
-      "premise": "The gallery is closed every Monday.",
-      "hypothesis": "The gallery is open on Monday."
-    },
-    "criteria": [
-      {
-        "id": "entailment",
-        "description": "The premise guarantees that the claim is true."
-      },
-      {
-        "id": "contradiction",
-        "description": "The premise guarantees that the claim is false."
-      },
-      {
-        "id": "neutral",
-        "description": "The premise does not determine whether the claim is true."
-      }
-    ]
-  },
-  {
-    "id": "return-help-unrelated",
-    "title": "Unrelated account information",
-    "category": "Find return instructions",
+    "id": "score-sentiment-praise",
+    "title": "Rate the tone of a cafe review",
+    "category": "Review positivity",
     "task": "score",
-    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "instruction": "How positive is the customer review?",
     "state": {
-      "query": "How do I return a damaged item and get a refund?",
-      "document": "You can change your display name and profile photo in Account settings."
+      "review": "We visited the little cafe after a long walk through the town. There was a short wait because the terrace was busy, but the staff kept us informed and brought water while we waited. The food was delicious, the service was friendly, and the view over the harbor was beautiful. The owner even helped us find the bus stop afterwards. I loved the experience and would happily return with friends."
     },
     "criteria": [
       {
         "id": "0",
-        "description": "No useful evidence. The document is irrelevant to the query.",
-        "value": 0
+        "value": 0,
+        "description": "Very negative: strongly dislikes the experience."
       },
       {
         "id": "1",
-        "description": "Topic only. No useful answer.",
-        "value": 1
+        "value": 1,
+        "description": "Neutral: neither likes nor dislikes the experience."
       },
       {
         "id": "2",
-        "description": "Background information. No direct answer.",
-        "value": 2
-      },
-      {
-        "id": "3",
-        "description": "Partial answer. Some useful details are missing.",
-        "value": 3
-      },
-      {
-        "id": "4",
-        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
-        "value": 4
-      }
-    ]
-  },
-  {
-    "id": "return-help-complete",
-    "title": "Complete return and refund steps",
-    "category": "Find return instructions",
-    "task": "score",
-    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
-    "state": {
-      "query": "How do I return a damaged item and get a refund?",
-      "document": "Open Order history, select the damaged item, and click Request a return. Upload a photo of the damage, print the prepaid return label, and send the item back. Your refund will be issued to the original payment method after the return is received."
-    },
-    "criteria": [
-      {
-        "id": "0",
-        "description": "No useful evidence. The document is irrelevant to the query.",
-        "value": 0
-      },
-      {
-        "id": "1",
-        "description": "Topic only. No useful answer.",
-        "value": 1
-      },
-      {
-        "id": "2",
-        "description": "Background information. No direct answer.",
-        "value": 2
-      },
-      {
-        "id": "3",
-        "description": "Partial answer. Some useful details are missing.",
-        "value": 3
-      },
-      {
-        "id": "4",
-        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
-        "value": 4
+        "value": 2,
+        "description": "Very positive: strongly likes the experience."
       }
     ]
   },
@@ -756,7 +436,7 @@
     "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
     "state": {
       "query": "What is the difference between a passport and a boarding pass?",
-      "document": "A passport is a government-issued identity document used for international travel. A boarding pass is issued by an airline and gives permission to board a particular flight, showing details such as the gate and seat."
+      "document": "A passport is a government-issued identity document used for international travel. It identifies the traveler and their nationality, and it can be used for many trips until it expires. A boarding pass is issued by an airline and gives permission to board one particular flight. It shows flight details such as the gate and seat. Checking in online may give you a digital boarding pass, but it does not replace your passport when traveling internationally."
     },
     "criteria": [
       {
@@ -794,7 +474,7 @@
     "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
     "state": {
       "query": "What is the difference between a passport and a boarding pass?",
-      "document": "The local basketball team won the final game by twelve points after a strong performance in the second half."
+      "document": "The local basketball team won the final game by twelve points after a strong performance in the second half. The captain scored twice in the last minute, and the crowd stood to applaud. After the medal ceremony, the coach thanked the volunteers who had organized the tournament. Training for the next season begins in October, with several younger players expected to join the squad."
     },
     "criteria": [
       {
@@ -832,45 +512,7 @@
     "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
     "state": {
       "query": "What does HTML stand for?",
-      "document": "HTML stands for HyperText Markup Language. It is used to describe the structure of web pages."
-    },
-    "criteria": [
-      {
-        "id": "0",
-        "description": "No useful evidence. The document is irrelevant to the query.",
-        "value": 0
-      },
-      {
-        "id": "1",
-        "description": "Topic only. No useful answer.",
-        "value": 1
-      },
-      {
-        "id": "2",
-        "description": "Background information. No direct answer.",
-        "value": 2
-      },
-      {
-        "id": "3",
-        "description": "Partial answer. Some useful details are missing.",
-        "value": 3
-      },
-      {
-        "id": "4",
-        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
-        "value": 4
-      }
-    ]
-  },
-  {
-    "id": "score-html-unrelated",
-    "title": "Web terminology: an unrelated passage",
-    "category": "Learning: web terminology",
-    "task": "score",
-    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
-    "state": {
-      "query": "What does HTML stand for?",
-      "document": "The community garden has a wooden fence, a small tool shed, and several raised flower beds."
+      "document": "HTML stands for HyperText Markup Language. It describes the structure of a web page, including headings, paragraphs, links, and images. A browser reads these elements to display the document. HTML is often used alongside CSS, which controls presentation, and JavaScript, which adds interactive behavior. Those technologies have different roles; the name HTML refers specifically to HyperText Markup Language."
     },
     "criteria": [
       {
@@ -908,7 +550,7 @@
     "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
     "state": {
       "query": "What is evaporation?",
-      "document": "Evaporation is the process in which a liquid changes into a gas at its surface. For example, a puddle gradually disappears as water evaporates into the air."
+      "document": "Evaporation is the process in which a liquid changes into a gas at its surface. For example, water in a puddle gradually enters the air as water vapor, so the puddle shrinks even when it is not boiling. Warmth and moving air can make this happen faster. The same process helps wet clothes dry on a line: liquid water in the fabric escapes into the surrounding air as vapor."
     },
     "criteria": [
       {
@@ -939,14 +581,14 @@
     ]
   },
   {
-    "id": "score-evaporation-unrelated",
-    "title": "Changes of state: an unrelated passage",
-    "category": "Science: changes of state",
+    "id": "return-help-unrelated",
+    "title": "Unrelated account information",
+    "category": "Find return instructions",
     "task": "score",
     "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
     "state": {
-      "query": "What is evaporation?",
-      "document": "The community garden has a wooden fence, a small tool shed, and several raised flower beds."
+      "query": "How do I return a damaged item and get a refund?",
+      "document": "You can change your display name and profile photo in Account settings. Open the Profile tab, enter the name you want other members to see, and select Save. This does not change the billing name on existing orders. To replace your photo, upload a JPG or PNG file and adjust the crop. Your updated profile appears immediately, although comments already sent by email retain the previous name."
     },
     "criteria": [
       {
@@ -973,33 +615,6 @@
         "id": "4",
         "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
         "value": 4
-      }
-    ]
-  },
-  {
-    "id": "score-sentiment-praise",
-    "title": "Rate the tone of a cafe review",
-    "category": "Review positivity",
-    "task": "score",
-    "instruction": "How positive is the customer review?",
-    "state": {
-      "review": "The little cafe was wonderful. Delicious food, friendly staff, and a beautiful view. I loved every minute."
-    },
-    "criteria": [
-      {
-        "id": "0",
-        "value": 0,
-        "description": "Very negative: strongly dislikes the experience."
-      },
-      {
-        "id": "1",
-        "value": 1,
-        "description": "Neutral: neither likes nor dislikes the experience."
-      },
-      {
-        "id": "2",
-        "value": 2,
-        "description": "Very positive: strongly likes the experience."
       }
     ]
   }
