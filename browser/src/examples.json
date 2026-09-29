@@ -147,6 +147,111 @@
     ]
   },
   {
+    "id": "paraphrase-transfer",
+    "title": "Same people, opposite money transfer",
+    "category": "Meaning and paraphrases",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "Nina transferred thirty dollars to Owen.",
+      "sentence2": "Owen transferred thirty dollars to Nina."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The two sentences express the same meaning."
+      },
+      {
+        "id": "false",
+        "description": "The two sentences do not express the same meaning."
+      }
+    ]
+  },
+  {
+    "id": "paraphrase-pets",
+    "title": "Similar words, different pet owners",
+    "category": "Meaning and paraphrases",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "The red-haired boy owns the cat, and the girl owns the dog.",
+      "sentence2": "The girl owns the cat, and the red-haired boy owns the dog."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The two sentences express the same meaning."
+      },
+      {
+        "id": "false",
+        "description": "The two sentences do not express the same meaning."
+      }
+    ]
+  },
+  {
+    "id": "rule-bird-negative",
+    "title": "Spot a conclusion that breaks a rule",
+    "category": "Facts and simple reasoning",
+    "task": "noul",
+    "instruction": "Does the premise support the hypothesis?",
+    "state": {
+      "premise": "All sparrows are birds. Pip is a sparrow.",
+      "hypothesis": "Pip is not a bird."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise supports the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not support the hypothesis."
+      }
+    ]
+  },
+  {
+    "id": "reading-submarine",
+    "title": "Check a conflicting science claim",
+    "category": "Facts and simple reasoning",
+    "task": "noul",
+    "instruction": "Does the premise support the hypothesis?",
+    "state": {
+      "premise": "A submarine travels underwater. It does not fly through the air.",
+      "hypothesis": "A submarine flies through the air."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The premise supports the hypothesis."
+      },
+      {
+        "id": "false",
+        "description": "The premise does not support the hypothesis."
+      }
+    ]
+  },
+  {
+    "id": "paraphrase-bicycle",
+    "title": "Same bicycle purchase, different word order",
+    "category": "Meaning and paraphrases",
+    "task": "noul",
+    "instruction": "Do the sentences express the same meaning, including who did what to whom?",
+    "state": {
+      "sentence1": "Mira bought a blue bicycle yesterday.",
+      "sentence2": "Yesterday, Mira bought a blue bicycle."
+    },
+    "criteria": [
+      {
+        "id": "true",
+        "description": "The two sentences express the same meaning."
+      },
+      {
+        "id": "false",
+        "description": "The two sentences do not express the same meaning."
+      }
+    ]
+  },
+  {
     "id": "bank-lost-card",
     "title": "Route a lost bank card report",
     "category": "Banking support",
@@ -391,6 +496,183 @@
     ]
   },
   {
+    "id": "grammar-tense",
+    "title": "Choose a grammatical past-tense sentence",
+    "category": "English grammar",
+    "task": "choice",
+    "instruction": "Which sentence is grammatically acceptable in English?",
+    "state": {},
+    "criteria": [
+      {
+        "id": "A",
+        "description": "Yesterday, Mara goed to the library."
+      },
+      {
+        "id": "B",
+        "description": "Yesterday, Mara went to the library."
+      }
+    ]
+  },
+  {
+    "id": "cause-rain",
+    "title": "Explain why a sidewalk is wet",
+    "category": "Knowledge and reasoning",
+    "task": "choice",
+    "instruction": "Choose the best answer to the question.",
+    "state": {
+      "question": "It rained heavily overnight. In the morning the uncovered sidewalk was wet. What is the most likely cause?"
+    },
+    "criteria": [
+      {
+        "id": "Rain",
+        "description": "Rain fell on the sidewalk."
+      },
+      {
+        "id": "Paint",
+        "description": "Someone painted the sky."
+      },
+      {
+        "id": "Sun",
+        "description": "The sun dried the sidewalk."
+      }
+    ]
+  },
+  {
+    "id": "topic-sports",
+    "title": "Classify a swimming competition report",
+    "category": "News topics",
+    "task": "choice",
+    "instruction": "Which topic best describes the article?",
+    "state": {
+      "article": "The swimmer broke the national record in the final and won two gold medals at the championship."
+    },
+    "criteria": [
+      {
+        "id": "Sports",
+        "description": "Sports news."
+      },
+      {
+        "id": "Business",
+        "description": "Business and economic news."
+      },
+      {
+        "id": "Science",
+        "description": "Scientific discoveries and research."
+      },
+      {
+        "id": "Politics",
+        "description": "Government and political affairs."
+      }
+    ]
+  },
+  {
+    "id": "topic-science",
+    "title": "Classify a discovery about a distant planet",
+    "category": "News topics",
+    "task": "choice",
+    "instruction": "Which topic best describes the article?",
+    "state": {
+      "article": "Astronomers detected water vapor in the atmosphere of a distant planet using a space telescope."
+    },
+    "criteria": [
+      {
+        "id": "Sports",
+        "description": "Sports news."
+      },
+      {
+        "id": "Business",
+        "description": "Business and economic news."
+      },
+      {
+        "id": "Science",
+        "description": "Scientific discoveries and research."
+      },
+      {
+        "id": "Politics",
+        "description": "Government and political affairs."
+      }
+    ]
+  },
+  {
+    "id": "science-root",
+    "title": "Which plant part absorbs water?",
+    "category": "Knowledge and reasoning",
+    "task": "choice",
+    "instruction": "Which part of a plant absorbs water from the soil?",
+    "state": {},
+    "criteria": [
+      {
+        "id": "Roots",
+        "description": "The roots"
+      },
+      {
+        "id": "Flowers",
+        "description": "The flowers"
+      },
+      {
+        "id": "Seeds",
+        "description": "The seeds"
+      },
+      {
+        "id": "Fruit",
+        "description": "The fruit"
+      }
+    ]
+  },
+  {
+    "id": "emotion-joy",
+    "title": "Recognize excitement about good news",
+    "category": "Emotion recognition",
+    "task": "choice",
+    "instruction": "Which emotion is most clearly expressed in the message?",
+    "state": {
+      "message": "I got accepted into my first-choice university! I cannot stop smiling and I want to celebrate with everyone."
+    },
+    "criteria": [
+      {
+        "id": "joy",
+        "description": "Joy"
+      },
+      {
+        "id": "sadness",
+        "description": "Sadness"
+      },
+      {
+        "id": "anger",
+        "description": "Anger"
+      },
+      {
+        "id": "fear",
+        "description": "Fear"
+      }
+    ]
+  },
+  {
+    "id": "claim-contradicted",
+    "title": "A claim contradicted by a short passage",
+    "category": "Evidence checking",
+    "task": "choice",
+    "instruction": "Does the premise entail, contradict, or leave the hypothesis undetermined?",
+    "state": {
+      "premise": "The gallery is closed every Monday.",
+      "hypothesis": "The gallery is open on Monday."
+    },
+    "criteria": [
+      {
+        "id": "entailment",
+        "description": "The premise guarantees that the claim is true."
+      },
+      {
+        "id": "contradiction",
+        "description": "The premise guarantees that the claim is false."
+      },
+      {
+        "id": "neutral",
+        "description": "The premise does not determine whether the claim is true."
+      }
+    ]
+  },
+  {
     "id": "return-help-unrelated",
     "title": "Unrelated account information",
     "category": "Find return instructions",
@@ -463,6 +745,261 @@
         "id": "4",
         "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
         "value": 4
+      }
+    ]
+  },
+  {
+    "id": "travel-passport-full",
+    "title": "Find a travel-document explanation",
+    "category": "Travel: passport documents",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is the difference between a passport and a boarding pass?",
+      "document": "A passport is a government-issued identity document used for international travel. A boarding pass is issued by an airline and gives permission to board a particular flight, showing details such as the gate and seat."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "travel-passport-unrelated",
+    "title": "Travel documents: an unrelated sports report",
+    "category": "Travel: passport documents",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is the difference between a passport and a boarding pass?",
+      "document": "The local basketball team won the final game by twelve points after a strong performance in the second half."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "score-html-full",
+    "title": "Web terminology: a direct explanation",
+    "category": "Learning: web terminology",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What does HTML stand for?",
+      "document": "HTML stands for HyperText Markup Language. It is used to describe the structure of web pages."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "score-html-unrelated",
+    "title": "Web terminology: an unrelated passage",
+    "category": "Learning: web terminology",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What does HTML stand for?",
+      "document": "The community garden has a wooden fence, a small tool shed, and several raised flower beds."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "score-evaporation-full",
+    "title": "Changes of state: a direct explanation",
+    "category": "Science: changes of state",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is evaporation?",
+      "document": "Evaporation is the process in which a liquid changes into a gas at its surface. For example, a puddle gradually disappears as water evaporates into the air."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "score-evaporation-unrelated",
+    "title": "Changes of state: an unrelated passage",
+    "category": "Science: changes of state",
+    "task": "score",
+    "instruction": "Evaluate the document for the query using only their supplied text. A complete answer directly provides the requested information; unrelated text provides no useful evidence.",
+    "state": {
+      "query": "What is evaporation?",
+      "document": "The community garden has a wooden fence, a small tool shed, and several raised flower beds."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "description": "No useful evidence. The document is irrelevant to the query.",
+        "value": 0
+      },
+      {
+        "id": "1",
+        "description": "Topic only. No useful answer.",
+        "value": 1
+      },
+      {
+        "id": "2",
+        "description": "Background information. No direct answer.",
+        "value": 2
+      },
+      {
+        "id": "3",
+        "description": "Partial answer. Some useful details are missing.",
+        "value": 3
+      },
+      {
+        "id": "4",
+        "description": "Complete answer. The document provides all the requested facts or instructions needed to answer the query.",
+        "value": 4
+      }
+    ]
+  },
+  {
+    "id": "score-sentiment-praise",
+    "title": "Rate the tone of a cafe review",
+    "category": "Review positivity",
+    "task": "score",
+    "instruction": "How positive is the customer review?",
+    "state": {
+      "review": "The little cafe was wonderful. Delicious food, friendly staff, and a beautiful view. I loved every minute."
+    },
+    "criteria": [
+      {
+        "id": "0",
+        "value": 0,
+        "description": "Very negative: strongly dislikes the experience."
+      },
+      {
+        "id": "1",
+        "value": 1,
+        "description": "Neutral: neither likes nor dislikes the experience."
+      },
+      {
+        "id": "2",
+        "value": 2,
+        "description": "Very positive: strongly likes the experience."
       }
     ]
   }
