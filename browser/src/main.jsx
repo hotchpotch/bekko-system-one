@@ -291,9 +291,6 @@ function App() {
             choose an option, or score an answer.
           </p>
         </div>
-        <span className="badge">
-          {model.name} · {deviceLabel(device)} · Private inputs
-        </span>
       </header>
       <section className="model-panel" aria-label="Model">
         <div className="model-selection">
