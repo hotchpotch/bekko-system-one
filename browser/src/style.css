@@ -688,3 +688,20 @@ button {
   font-size: 12px;
   margin: 6px 0 0;
 }
+.context-field .field textarea {
+  margin-top: 8px;
+}
+#add-context {
+  width: auto;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.binary-meanings {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.meaning-field .field label {
+  margin: 0;
+  font-size: 13px;
+  color: #20372e;
+}

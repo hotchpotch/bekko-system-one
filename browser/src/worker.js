@@ -53,15 +53,16 @@ self.onmessage = async ({ data }) => {
       return;
     }
     self.postMessage({ status: `Running on ${deviceLabel(device)}…` });
-    const start = performance.now();
+    let inferenceMilliseconds;
     const result = await predict(
       data.decision ? renderDecision(data.decision) : data.request,
       runtime,
+      { onInferenceTime: (elapsed) => { inferenceMilliseconds = elapsed; } },
     );
     self.postMessage({
       result,
       device,
-      milliseconds: performance.now() - start,
+      inferenceMilliseconds,
     });
   } catch (error) {
     self.postMessage({ error: error.message });

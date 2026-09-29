@@ -46,7 +46,7 @@ function initialForm(task, id = defaults[task]) {
   };
 }
 function Result({ output }) {
-  const { decision, result, milliseconds, device = "cpu" } = output;
+  const { decision, result, inferenceMilliseconds, device = "cpu" } = output;
   const candidates = decision.criteria;
   const sorted = [...candidates].sort(
     (a, b) => result.probabilities[b.id] - result.probabilities[a.id],
@@ -123,7 +123,7 @@ function Result({ output }) {
         </div>
       ))}
       <p className="result-time">
-        Completed in {milliseconds.toFixed(0)} ms · {deviceLabel(device)}
+        Inference: {inferenceMilliseconds.toFixed(1)} ms · {deviceLabel(device)}
         {device === "webgpu"
           ? " (CPU fallback for unsupported operations)"
           : " on your device"}
@@ -474,7 +474,6 @@ function App() {
                     <Textarea
                       id={`state-${index}`}
                       data-key={key}
-                      label="Value"
                       aria-label={`Context value ${index + 1}${key ? ` (${key})` : ""}`}
                       rows={String(value).length > 180 ? 4 : 2}
                       value={value}
@@ -486,25 +485,47 @@ function App() {
                 );
               })}
             </div>
+            <Button
+              id="add-context"
+              secondary
+              type="button"
+              onClick={() => {
+                let number = form.context.length + 1;
+                while (form.context.some(([key]) => key === `field_${number}`)) number++;
+                const index = form.context.length;
+                change("context", [...form.context, [`field_${number}`, ""]]);
+                requestAnimationFrame(() => {
+                  const input = document.getElementById(`state-key-${index}`);
+                  input?.focus();
+                  input?.select();
+                });
+              }}
+            >
+              + Add context field
+            </Button>
             {form.task === "noul" ? (
               <div id="binary-fields">
                 <div className="binary-meanings">
-                  <Textarea
-                    id="yes"
-                    label="Yes means"
-                    rows={2}
-                    required
-                    value={form.yes}
-                    onChange={(e) => change("yes", e.target.value)}
-                  />
-                  <Textarea
-                    id="no"
-                    label="No means"
-                    rows={2}
-                    required
-                    value={form.no}
-                    onChange={(e) => change("no", e.target.value)}
-                  />
+                  <div className="context-field meaning-field">
+                    <Textarea
+                      id="yes"
+                      label="Yes means"
+                      rows={2}
+                      required
+                      value={form.yes}
+                      onChange={(e) => change("yes", e.target.value)}
+                    />
+                  </div>
+                  <div className="context-field meaning-field">
+                    <Textarea
+                      id="no"
+                      label="No means"
+                      rows={2}
+                      required
+                      value={form.no}
+                      onChange={(e) => change("no", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             ) : (

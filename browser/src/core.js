@@ -63,15 +63,20 @@ export function interpret(request, logits) {
   return { score, normalized_score: (score - Math.min(...values)) / (Math.max(...values) - Math.min(...values)), probabilities, values: Object.fromEntries(request.candidates.map(c => [c.id, c.value])) };
 }
 
-export async function predict(request, { tokenizer, manifest, session, ort }) {
+export async function predict(request, { tokenizer, manifest, session, ort }, { onInferenceTime } = {}) {
   const tokens = tokenize(request, tokenizer, manifest);
   // Run candidates sequentially to bound attention memory even with long prefixes.
   const column = manifest.tasks.indexOf(request.task);
   if (column < 0) throw Error('Task is absent from this model');
   const logits = [];
+  let inferenceMilliseconds = 0;
   for (const doc of tokens.doc_ids) {
-    const result = await session.run(feedsFor({ prefix_ids: tokens.prefix_ids, doc_ids: [doc] }, ort, manifest));
+    const feeds = feedsFor({ prefix_ids: tokens.prefix_ids, doc_ids: [doc] }, ort, manifest);
+    const start = performance.now();
+    const result = await session.run(feeds);
+    inferenceMilliseconds += performance.now() - start;
     logits.push(Number(result.logits.data[column]));
   }
+  onInferenceTime?.(inferenceMilliseconds);
   return interpret(request, logits);
 }

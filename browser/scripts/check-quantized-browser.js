@@ -22,10 +22,10 @@ async (page) => {
             worker.postMessage({ request: fixture.request, base: new URL(`./model/quantized/${name}/`, document.baseURI).href });
           });
           for (const [id, expected] of Object.entries(fixture.expected.probabilities)) errors.push(Math.abs(expected - reply.result.probabilities[id]));
-          timings.push(reply.milliseconds);
+          timings.push(reply.inferenceMilliseconds);
         }
       } finally { worker.terminate(); }
-      results[name] = { cases: cases.length, maxProbabilityErrorVsNode: Math.max(...errors), milliseconds: timings };
+      results[name] = { cases: cases.length, maxProbabilityErrorVsNode: Math.max(...errors), inferenceMilliseconds: timings };
       results[name].withinTolerance = results[name].maxProbabilityErrorVsNode <= 1e-4;
       if (!Number.isFinite(results[name].maxProbabilityErrorVsNode)) throw Error(`${name}: non-finite output`);
     }

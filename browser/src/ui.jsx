@@ -12,7 +12,7 @@ export function Button({ secondary = false, className = "", ...props }) {
 export function Textarea({ id, label, help, ...props }) {
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      {label && <label htmlFor={id}>{label}</label>}
       <textarea
         id={id}
         aria-describedby={help ? `${id}-help` : undefined}
