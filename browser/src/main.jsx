@@ -49,11 +49,14 @@ function initialForm(task, id = defaults[task]) {
 function Result({ output }) {
   const { decision, result, inferenceMilliseconds, device = "cpu" } = output;
   const candidates = decision.criteria;
-  const winner = candidates.reduce((best, candidate) =>
-    result.probabilities[candidate.id] > result.probabilities[best.id]
-      ? candidate
-      : best,
-  );
+  const highlighted = candidates.reduce((best, candidate) => {
+    if (decision.task === "score") {
+      return Math.abs(candidate.value - result.score) < Math.abs(best.value - result.score)
+        ? candidate : best;
+    }
+    return result.probabilities[candidate.id] > result.probabilities[best.id]
+      ? candidate : best;
+  });
   const min = Math.min(...candidates.map((c) => c.value)),
     max = Math.max(...candidates.map((c) => c.value));
   const choice = candidates.find((c) => c.id === result.selected_id);
@@ -77,7 +80,7 @@ function Result({ output }) {
         {decision.task === "score" ? "Model score" : "Model prediction"}
         <HelpTooltip id="result-help" label="Help with this result">
           {decision.task === "score"
-            ? "The score averages your numeric levels using their probabilities. It may differ from the most likely single level. The bars show the probability for each level."
+            ? "The score averages your numeric levels using their probabilities. The highlighted level is closest to that score; ties use the first level in your input order. The bars show the probability for each level, so the longest bar may belong to a different level."
             : decision.task === "choice"
               ? "The heading shows the most likely option. Bars show probabilities across all options in your input order. Similar probabilities mean the model has no clear preference."
               : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
@@ -102,7 +105,7 @@ function Result({ output }) {
       {candidates.map((c) => (
         <div
           key={c.id}
-          className={`probability ${c.id === winner.id ? "winner" : ""}`}
+          className={`probability ${c.id === highlighted.id ? "winner" : ""}`}
         >
           <div className="probability-title">
             <span className="probability-name">
