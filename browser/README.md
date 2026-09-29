@@ -41,9 +41,9 @@ revision so deployments use a consistent set of files.
 
 | Model | ONNX file size | Status |
 | --- | ---: | --- |
-| Bekko s1 v0 17M | 29.0 MB | Available |
-| Bekko s1 v0 68M | 196.3 MB | Available |
-| Bekko s1 v0 400M | — | Not available in the demo |
+| Bekko-s1-v0-17M | 29.0 MB | Available |
+| Bekko-s1-v0-68M | 196.3 MB | Available |
+| Bekko-s1-v0-400M | — | Not available in the demo |
 
 Sizes are decimal MB for the ONNX file alone. Tokenizer files and the inference
 runtime are additional downloads. Both available models use **INT8 token
