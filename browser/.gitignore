@@ -4,3 +4,4 @@ public/model/*
 !public/model/.gitkeep
 __pycache__/
 .playwright-cli/
+export/

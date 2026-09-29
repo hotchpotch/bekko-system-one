@@ -23,7 +23,7 @@ async (page) => {
     rows.push({task,gpu:result});
   }
   await page.getByRole('radio',{name:'CPU',exact:true}).check();
-  if(!(await page.locator('#model-status').textContent()).includes('Not downloaded')) throw Error('Switch must reset loaded state');
+  if(!(await page.locator('#model-status').textContent()).includes('Not loaded')) throw Error('Switch must reset loaded state');
   for(const row of rows) {
     await select('task',row.task); row.cpu=await run();
     row.maxDifference=Math.max(...Object.keys(row.cpu.probabilities).map(id=>Math.abs(row.cpu.probabilities[id]-row.gpu.probabilities[id])));

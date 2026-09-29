@@ -1,6 +1,6 @@
 ---
-title: Bekko Local Decisions
-emoji: 🐢
+title: Bekko System One in Browser
+emoji: 🐂
 colorFrom: green
 colorTo: gray
 sdk: static

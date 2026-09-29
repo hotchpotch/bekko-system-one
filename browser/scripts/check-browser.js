@@ -20,7 +20,7 @@ async (page) => {
     for (const task of ['noul', 'choice', 'score']) {
       await page.locator('#task').press('ArrowDown');
       await page.getByRole('option', { name: {noul:'Noul (Yes/No)',choice:'Choice',score:'Score'}[task], exact:true }).click();
-      if (await page.locator('#request-json').isVisible()) throw Error('Request JSON should start collapsed');
+      if (await page.locator('#request-json').isVisible()) throw Error('Input JSON should start collapsed');
       await page.locator('#run-example').click();
       await page.waitForFunction(() => !document.querySelector('#run').disabled, null, { timeout: 60000 });
       const response = JSON.parse(await page.locator('#response-json').textContent());
@@ -45,9 +45,9 @@ async (page) => {
     await page.waitForFunction(() => !document.querySelector('#run').disabled, null, { timeout: 60000 });
     const custom = JSON.parse(await page.locator('#response-json').textContent());
     if (typeof custom.probability_yes !== 'number') throw Error('Default Yes/No criteria must work');
-    await page.getByText('Request JSON', { exact: true }).click();
+    await page.getByText('Input JSON', { exact: true }).click();
     if (!await page.locator('#request-json').isVisible()) throw Error('Cannot expand request');
-    await page.getByText('Response JSON', { exact: true }).click();
+    await page.getByText('Output JSON', { exact: true }).click();
     if (!await page.locator('#response-json').isVisible()) throw Error('Cannot expand response');
     await page.setViewportSize({ width: 390, height: 844 });
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw Error('Mobile page overflows');

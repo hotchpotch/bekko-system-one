@@ -41,7 +41,7 @@ heads. Each directory contains `model_int8.onnx`, `manifest.json`,
 `tokenizer.json`, and `tokenizer_config.json`. The manifest identifies the model
 file, hashes, quantization policy, task heads, and token budgets.
 
-Use **Download model now** to preload, or run an example to load automatically.
+Use **Load model** to preload, or run an example to load automatically.
 File progress shows received bytes; initialization is displayed separately.
 Switching model or execution device releases the current worker and loads the
 new session on the next run. Failed downloads can be retried.
@@ -69,7 +69,7 @@ available above and below the input fields.
   probability-weighted score and can fall between levels.
 
 Context uses ordinary text fields. Results show probabilities and the selected
-execution device. Request JSON, rendered model input, and response JSON are
+execution device. Input JSON, rendered model input, and Output JSON are
 available in expandable panels. There is no system prompt field.
 
 ## Export your own checkpoint
@@ -145,9 +145,37 @@ GPU unavailability is reported explicitly.
 
 ## Hugging Face Static Space
 
-Copy the contents of `dist/` to a Static Space, with `SPACE_README.md` renamed to
-`README.md`. The app downloads models directly from the pinned Hub revision.
-No Python service, GPU server, or host build step is required.
+Export a ready-to-upload directory:
+
+```sh
+npm run export:space
+```
+
+This builds the app and recreates `export/space/` with static assets and the Space
+README. Model files and local source files are not included.
+
+With the Hugging Face CLI (`hf`) installed and authenticated via `hf auth login`
+or `HF_TOKEN`, export and deploy in one command:
+
+```sh
+npm run deploy:space -- hotchpotch/bekko-system-one-in-browser
+```
+
+The script creates a **private Static Space**, or verifies that an existing Space
+is private and static before uploading. It never switches visibility. The Space
+name above is the default when no argument is given. Uploaded assets use hashed
+filenames; previous assets are retained so existing browser sessions keep working.
+
+Check deployment status with:
+
+```sh
+hf spaces wait hotchpotch/bekko-system-one-in-browser --timeout 5m
+```
+
+The app downloads models directly from the pinned public Hub revision. No Python
+service, GPU server, or host build step is required. A private Space does not
+change the visibility of the model repository. Never include access tokens in
+frontend files.
 
 References: [ONNX Runtime Web](https://onnxruntime.ai/docs/get-started/with-javascript/web.html),
 [WebGPU](https://onnxruntime.ai/docs/tutorials/web/ep-webgpu.html),

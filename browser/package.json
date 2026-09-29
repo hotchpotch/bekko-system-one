@@ -11,7 +11,9 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "infer": "node src/cli.js",
-    "test": "node --test"
+    "test": "node --test",
+    "export:space": "node scripts/export-space.js",
+    "deploy:space": "node scripts/deploy-space.js"
   },
   "dependencies": {
     "@huggingface/tokenizers": "0.2.0",
