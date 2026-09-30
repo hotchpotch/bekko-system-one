@@ -2,6 +2,7 @@
 
 > Small System One decision models for choosing, judging, scoring, and reranking.
 
+[Release article](https://huggingface.co/blog/hotchpotch/bekko-system-one-v0-release/) ·
 [Models](#model-catalog) · [Quickstart](#quickstart) · [Benchmarks](#benchmarks) ·
 [Browser app](browser/README.md) · [Training guide](docs/quickstart-training.md) ·
 [Training dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
