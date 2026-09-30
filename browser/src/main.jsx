@@ -113,12 +113,16 @@ function Result({ output }) {
       <p className="result-note">{note}</p>
       {decision.task === "score" && (
         <>
-          <div className="score-position" role="img" aria-label={`Estimated score ${title} on a scale from ${min} to ${max}`}>
-            <span className="score-marker" style={{ left: percent(result.normalized_score) }} />
-          </div>
-          <div className="scale-ends">
-            <span>{min}</span>
-            <span>{max}</span>
+          <div className="score-ruler" role="img" aria-label={`Estimated score ${title} on a scale from ${min} to ${max}. Levels: ${candidates.map(c => c.value).join(", ")}`}>
+            <div className="score-position" aria-hidden="true">
+              {candidates.map(c => (
+                <span key={c.id} className={`score-tick ${c.value === min ? "first" : c.value === max ? "last" : ""}`}
+                  style={{ left: percent((c.value - min) / (max - min)) }}>
+                  <span className="score-tick-label">{c.value}</span>
+                </span>
+              ))}
+              <span className="score-marker" style={{ left: percent(result.normalized_score) }} />
+            </div>
           </div>
         </>
       )}
