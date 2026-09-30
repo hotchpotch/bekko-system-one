@@ -346,7 +346,7 @@ function App() {
       <details className="model-info">
         <summary>
           <Info size={17} aria-hidden="true" />
-          <span>Small models, limited generalization</span>
+          <span>Works best on familiar tasks · View limitations</span>
           <ChevronDown size={16} className="model-info-chevron" aria-hidden="true" />
         </summary>
         <div className="model-info-content">
