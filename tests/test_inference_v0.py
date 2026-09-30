@@ -2,7 +2,12 @@
 
 import copy
 import importlib.util
+import json
+import subprocess
 import sys
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import torch
@@ -26,7 +31,7 @@ def test_native_renderer_matches_training_for_both_layouts():
         for i, actual in enumerate(groups):
             expected = render_input_group(row["input"], i, prefix_layout=layout)
             assert actual.query == expected.query
-            assert actual.query_parts == expected.query_parts
+            assert asdict(actual.query_parts) == asdict(expected.query_parts)
             assert actual.candidates == expected.candidates
             assert actual.task == expected.task
             assert actual.metadata.candidate_ids == expected.metadata.candidate_ids
@@ -145,6 +150,43 @@ def test_exported_st_remote_module_roundtrip(tmp_path, tiny_encoder, monkeypatch
             actual[key]["probabilities"], abs=2e-6
         )
     assert runtime_source() == source
+    # Test the repository file directly, independently of export-time rewriting.
+    import bekko_system_one.inference_v0 as runtime_module
+
+    raw_source = Path(runtime_module.__file__).read_text()
+    assert source == raw_source
+    (out / "inference_v0.py").write_text(raw_source)
+    request_path = tmp_path / "request.json"
+    request_path.write_text(json.dumps(request))
+    script = """
+import importlib.abc
+import json
+import sys
+class BlockTrainingPackage(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "bekko_system_one" or fullname.startswith("bekko_system_one."):
+            raise ImportError("Training package is unavailable")
+sys.meta_path.insert(0, BlockTrainingPackage())
+sys.path.insert(0, sys.argv[1])
+from inference_v0 import BekkoSentenceTransformer
+model = BekkoSentenceTransformer(sys.argv[1], device="cpu", attn_implementation="sdpa",
+                                trust_remote_code=True, local_files_only=True)
+with open(sys.argv[2]) as handle:
+    result = model.predict(json.load(handle), show_progress_bar=False)
+print(json.dumps(result))
+"""
+    process = subprocess.run(
+        [sys.executable, "-I", "-c", script, str(out), str(request_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+    )
+    isolated = json.loads(process.stdout)
+    for key in actual:
+        assert isolated[key]["probabilities"] == pytest.approx(
+            actual[key]["probabilities"], abs=2e-6
+        )
     with pytest.raises(ValueError, match="new output"):
         export_model(checkpoint, out)
 
@@ -373,3 +415,157 @@ def test_adaptive_caps_and_half_shares_can_be_overridden(portable_runtime, polic
     )
     assert actual == expected
     assert runtime.context_length == 128
+
+
+def test_attention_selection_cpu_and_invalid_options(portable_runtime):
+    model = BekkoSentenceTransformer(modules=[portable_runtime], device="cpu")
+    assert model[0].attn_implementation == "sdpa"
+    explicit = BekkoSentenceTransformer(
+        modules=[portable_runtime], device="cpu", attn_implementation="sdpa"
+    )
+    assert explicit[0].attn_implementation == "sdpa"
+    with pytest.raises(ValueError, match="CUDA GPU"):
+        BekkoSentenceTransformer(
+            modules=[portable_runtime], device="cpu", attn_implementation="flash_attention_2"
+        )
+    with pytest.raises(ValueError, match="attn_implementation"):
+        BekkoSentenceTransformer(modules=[portable_runtime], attn_implementation="invalid")
+    with pytest.raises(ValueError, match="Conflicting"):
+        BekkoSentenceTransformer(
+            modules=[portable_runtime],
+            attn_implementation="sdpa",
+            model_kwargs={"attn_implementation": "flash_attention_2"},
+        )
+
+
+@pytest.mark.parametrize("error", [ImportError("missing"), OSError("ABI mismatch")])
+def test_missing_fa2_explicit_errors_auto_falls_back(portable_runtime, monkeypatch, error):
+    import bekko_system_one.inference_v0 as inference
+
+    original = inference.importlib.import_module
+
+    def unavailable(name, *args, **kwargs):
+        if name == "flash_attn":
+            raise error
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(inference.importlib, "import_module", unavailable)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda device: (8, 0))
+    portable_runtime.set_attention_implementation("auto", device="cuda")
+    assert portable_runtime.attn_implementation == "sdpa"
+    with pytest.raises(RuntimeError, match="compatible flash-attn wheel"):
+        portable_runtime.set_attention_implementation("flash_attention_2", device="cuda")
+    assert portable_runtime.attn_implementation == "sdpa"
+
+
+def test_auto_fa2_selection_preserves_weights_and_clears_compile(portable_runtime, monkeypatch):
+    import bekko_system_one.inference_v0 as inference
+
+    monkeypatch.setattr(inference, "_load_fa2", lambda: lambda *a, **k: None)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda device: (8, 0))
+    before = {name: id(p) for name, p in portable_runtime.named_parameters()}
+    portable_runtime.compile_inference(backend="eager")
+    portable_runtime.set_attention_implementation("auto", device="cuda")
+    assert portable_runtime.attn_implementation == "flash_attention_2"
+    assert portable_runtime._compiled_forward is None
+    assert {name: id(p) for name, p in portable_runtime.named_parameters()} == before
+    portable_runtime.set_attention_implementation("sdpa")
+    assert portable_runtime.attn_implementation == "sdpa"
+    assert {name: id(p) for name, p in portable_runtime.named_parameters()} == before
+
+
+@pytest.mark.parametrize("length,window", [(13, 3), (257, 7), (511, 63), (900, 127)])
+def test_sdpa_block_boundaries_match_dense_attention(length, window):
+    from bekko_system_one.inference_v0 import _SDPAPrefix
+
+    torch.manual_seed(42)
+    encoder = _SDPAPrefix(torch.nn.Identity())
+    q, k, v = [torch.randn(3, length, 2, 8, dtype=torch.float64) for _ in range(3)]
+    lengths = torch.tensor([length, max(1, length // 3), 1])
+    mask = torch.arange(length)[None] < lengths[:, None]
+    reference = encoder.attend(q, k, v, mask, encoder.layout(mask, mask, window))
+    actual = encoder.blocked_attend(q, k, v, mask, encoder.blocked_layout(mask, window))
+    torch.testing.assert_close(actual, reference, atol=1e-12, rtol=1e-12)
+    assert torch.isfinite(actual).all()
+    assert torch.count_nonzero(actual[~mask]) == 0
+
+
+@pytest.mark.cuda
+@pytest.mark.parametrize("backend", ["sdpa", "flash_attention_2"])
+def test_cuda_exported_backend_roundtrip_and_typed_predictions(tmp_path, tiny_encoder, backend):
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    if backend == "flash_attention_2":
+        pytest.importorskip("flash_attn")
+    model = SentenceTransformer(
+        modules=[tiny_encoder, DecisionHeads(32, ["choice", "noul", "score"])], device="cpu"
+    ).eval()
+    source = tmp_path / "source"
+    model.save_pretrained(str(source), create_model_card=False)
+    out = export_model(source, tmp_path / "portable")
+    reference = BekkoSentenceTransformer(
+        str(out),
+        device="cuda",
+        attn_implementation="sdpa",
+        trust_remote_code=True,
+        local_files_only=True,
+    )
+    kwargs = {"attn_implementation": backend}
+    restored = BekkoSentenceTransformer(
+        str(out),
+        device="cuda",
+        model_kwargs=kwargs,
+        trust_remote_code=True,
+        local_files_only=True,
+    )
+    assert kwargs == {"attn_implementation": backend}
+    assert restored[0].attn_implementation == backend
+    assert type(restored[0]).__module__.startswith("transformers_modules.")
+    requests = [copy.deepcopy(native_case()["input"]) for _ in range(3)]
+    for i, request in enumerate(requests):
+        request["state_json"] = '"' + "good " * (i * 10 + 1) + '"'
+    expected = reference.predict(requests, show_progress_bar=False)
+    actual = restored.predict(requests, show_progress_bar=False)
+    for row, ref in zip(actual, expected, strict=True):
+        assert row.keys() == ref.keys()
+        for key in ref:
+            assert row[key]["probabilities"].keys() == ref[key]["probabilities"].keys()
+            assert row[key]["probabilities"] == pytest.approx(ref[key]["probabilities"], abs=0.01)
+    # Saving a FA2-loaded model must not make FA2 mandatory for later CPU loading.
+    saved = tmp_path / "resaved"
+    module = cast(Any, restored[0])
+    module.save(str(saved))
+    cpu_module = type(module).load(str(saved), local_files_only=True)
+    cpu = BekkoSentenceTransformer(modules=[cpu_module], device="cpu")
+    assert cpu[0].attn_implementation == "sdpa"
+    assert cpu.predict(requests[0], show_progress_bar=False).keys() == expected[0].keys()
+
+
+@pytest.mark.cuda
+def test_cuda_auto_prefers_fa2(portable_runtime):
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    pytest.importorskip("flash_attn")
+    model = BekkoSentenceTransformer(modules=[portable_runtime], device="cuda")
+    assert model[0].attn_implementation == "flash_attention_2"
+    model.predict(native_case()["input"], show_progress_bar=False)
+
+
+@pytest.mark.cuda
+def test_cuda_model_load_missing_fa2_does_not_silently_fallback(portable_runtime, monkeypatch):
+    import bekko_system_one.inference_v0 as inference
+
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+
+    def missing():
+        raise RuntimeError("compatible flash-attn wheel required")
+
+    monkeypatch.setattr(inference, "_load_fa2", missing)
+    with pytest.raises(RuntimeError, match="compatible flash-attn"):
+        BekkoSentenceTransformer(
+            modules=[portable_runtime], device="cuda", attn_implementation="flash_attention_2"
+        )
+    model = BekkoSentenceTransformer(modules=[portable_runtime], device="cuda")
+    assert model[0].attn_implementation == "sdpa"
+    model.predict(native_case()["input"], show_progress_bar=False)

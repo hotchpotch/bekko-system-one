@@ -55,8 +55,9 @@ The demo uses the `onnx_browser/` exports in the release repositories:
 - [68M](https://huggingface.co/hotchpotch/bekko-system-one-v0-68m)
 - [400M](https://huggingface.co/hotchpotch/bekko-system-one-v0-400m)
 
-These repositories currently require authenticated access. Use the local development
-server with `HF_TOKEN` while they are private.
+For public release repositories, the static build downloads models directly
+without authentication. The local development proxy requires `HF_TOKEN`, even
+when the repositories are public; use it for development or restricted models.
 [`src/models.js`](src/models.js) defines the model URLs and pins a specific Hub
 revision so deployments use a consistent set of files.
 
@@ -292,10 +293,9 @@ using CPU. WebGPU validation should also be performed on the intended hardware.
 ## Deploy to a private Hugging Face Space
 
 The authenticated model-download proxy is available only through `npm run dev`.
-A static build uses direct Hub URLs and contains no token. It cannot load these
-private models as configured. Do not deploy this configuration until the model
-repositories are publicly accessible or a separate authenticated download service
-is provided. Never embed `HF_TOKEN` in a static build.
+A static build uses direct Hub URLs and contains no token. Its configured models
+must be publicly accessible, or served through a separate authenticated download
+service. Never embed `HF_TOKEN` in a static build.
 
 Export a ready-to-upload static directory:
 

@@ -15,36 +15,15 @@ from .modules import DecisionHeads, SharedPrefix
 
 
 def runtime_source():
-    """Inline pure helpers so remote-code loading needs exactly one Python file.
-
-    Use the same definitions as training for token budgets, grouping and typed
-    interpretation. No package-relative imports survive in the exported module.
-    """
-    root = Path(__file__).parent
-    guide = ast.get_docstring(ast.parse((root / "inference_v0.py").read_text()), clean=False)
-    if guide is None:
+    """Copy the standalone source verbatim; no export-only dependency rewriting."""
+    source = Path(__file__).with_name("inference_v0.py").read_text()
+    module = ast.parse(source)
+    if ast.get_docstring(module) is None:
         raise ValueError("Standalone runtime must include its interface guide")
-    body = []
-    for name in ("query_budget", "data", "decisions", "choice", "inference_v0"):
-        module = ast.parse((root / f"{name}.py").read_text())
-        for node in module.body:
-            if isinstance(node, ast.ImportFrom) and (node.level or node.module == "__future__"):
-                continue
-            if (
-                isinstance(node, ast.Expr)
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            ):
-                continue
-            body.append(node)
-    return (
-        '"""'
-        + guide
-        + '"""\n'
-        + "from __future__ import annotations\n\n"
-        + ast.unparse(ast.Module(body=body, type_ignores=[]))
-        + "\n"
-    )
+    for node in ast.walk(module):
+        if isinstance(node, ast.ImportFrom) and node.level:
+            raise ValueError("Standalone runtime must not contain relative imports")
+    return source
 
 
 def portable_module(model, *, prefix_layout="instruction_state"):
@@ -113,6 +92,12 @@ def export_model(checkpoint, output):
     (output / "README.md").write_text(
         "# Bekko System One v0 inference\n\n"
         "Install `requirements.txt`; no Bekko training package is required.\n\n"
+        '`BekkoSentenceTransformer` defaults to `attn_implementation="auto"`: '
+        "compatible CUDA + flash-attn selects FA2, otherwise SDPA. Explicit "
+        "`flash_attention_2` fails at loading if unavailable; `sdpa` needs no FA2 wheel. "
+        "Inspect `model[0].attn_implementation`. For 17M, speeds are generally similar; "
+        "for 68M and larger, prefer FA2 for throughput and benchmark your workload. "
+        "BF16 probabilities can differ between backends.\n\n"
         "```python\nfrom inference_v0 import BekkoSentenceTransformer\n\n"
         'model = BekkoSentenceTransformer("PATH_OR_HUB_MODEL_ID", device="cpu", trust_remote_code=True)\n'
         "# request contains native state_json and decisions, without targets.\n"
@@ -121,8 +106,8 @@ def export_model(checkpoint, output):
         "results = model.predict([request], batch_size=128, token_budget=64000)\n"
         "# Optional: compile tensor execution; the first calls include compilation.\n"
         "model.compile_inference()\nresult = model.predict(request)\n```\n\n"
-        'For CUDA, select `device="cuda"`. Runtime attention uses PyTorch SDPA. '
-        "PEFT, datasets, W&B and FlashAttention are not required. "
+        'For CUDA, select `device="cuda"`; attention defaults to automatic FA2/SDPA selection. '
+        "PEFT, datasets and W&B are not required; FlashAttention is optional for SDPA. "
         "Tokenization/rendering remain eager. Compile cache reuse depends on shapes, device and runtime. "
         "Score is the expectation over explicit numeric criterion values; Noul returns P(yes). "
         "Adaptive inference shares the backbone position budget between query and candidates, "

@@ -13,15 +13,25 @@ configuration and one standalone `inference_v0.py`. LoRA weights, when present,
 are merged during export. Optional Choice interaction weights are preserved.
 The exported directory can also be uploaded as a Hugging Face model repository.
 
+The repository's `src/bekko_system_one/inference_v0.py` is itself standalone.
+The exporter copies it verbatim; no helper inlining or import rewriting is required.
+For a runtime-only update to an existing compatible v0 export, replace its
+`inference_v0.py` with this source file. Keep the exported weights, tokenizer and
+configuration together. Tests load the raw source in a separate process with
+imports of the training package blocked, and check parity with training helpers.
+
 On the inference machine, install the exported `requirements.txt`. Install a
 CUDA-compatible PyTorch build if using a GPU. The runtime needs PyTorch,
 Transformers, Sentence Transformers, safetensors and tqdm, including their normal
 transitive dependencies. It does not need this repository, PEFT, datasets, W&B
-or the external FlashAttention package. Attention uses PyTorch SDPA.
+or the external FlashAttention package when using SDPA. FlashAttention 2 is an
+optional acceleration backend; install a wheel compatible with your Python,
+PyTorch and CUDA versions (in this checkout: `uv sync --locked --extra fa2`).
 
-The examples below import `inference_v0.py` from the exported directory; add that
-folder to your Python import path or run from it. With the Bekko package installed,
-use `from bekko_system_one import BekkoSentenceTransformer` instead. This subclass
+Run the Python example below from the repository root with the package installed.
+On a deployment machine, install the export's `requirements.txt`, import
+`BekkoSentenceTransformer` from its `inference_v0.py`, and supply paths to the
+export and request file appropriate to that working directory. This subclass
 accepts the usual SentenceTransformer loading arguments and exposes `predict()`,
 `predict_groups()`, `compile_inference()` and `disable_compile()` directly on the
 model. Plain `SentenceTransformer(...)` still loads the module format, but does
@@ -29,7 +39,7 @@ not provide these typed convenience methods.
 
 ```python
 import json
-from inference_v0 import BekkoSentenceTransformer
+from bekko_system_one import BekkoSentenceTransformer
 
 model = BekkoSentenceTransformer(
     "output/bekko-system-one-v0-17m-inference",  # or a Hub model ID
@@ -46,6 +56,42 @@ model.compile_inference()
 result = model.predict(request)
 # model.disable_compile() restores eager execution.
 ```
+
+## Attention backend selection
+
+`BekkoSentenceTransformer` defaults to `attn_implementation="auto"`. It selects
+FA2 when loading onto a CUDA GPU with capability 8.0+ and the `flash_attn` native
+library imports successfully; otherwise it selects SDPA. Explicit selection:
+
+```python
+model = BekkoSentenceTransformer(
+    "PATH_OR_HUB_MODEL_ID", device="cuda", trust_remote_code=True,
+    attn_implementation="flash_attention_2",  # Or "sdpa" or "auto".
+)
+print(model[0].attn_implementation)
+```
+
+`model_kwargs={"attn_implementation": "flash_attention_2"}` is also supported by
+this subclass. Conflicting top-level/nested settings raise. Explicit FA2 fails
+at model loading if the GPU is unsupported or the library is missing/binary
+incompatible; it never silently falls back. `sdpa` does not import FA2. Backend
+selection is runtime-only, so saving on FA2 does not make FA2 mandatory for CPU
+reloads. Reload with the desired device/backend instead of moving a loaded FA2
+model to CPU. Plain `SentenceTransformer` loads the format, but use the Bekko
+subclass for backend selection. Re-export older checkpoints to include this API.
+
+For **17M**, SDPA and FA2 generally have little speed difference; SDPA is a good
+choice when avoiding optional dependencies. For **68M and larger**, prefer FA2
+for throughput, particularly with long inputs. Treat this as a sizing guideline,
+not a guarantee across all model sizes and GPUs. Measure your representative
+workload after warmup. The optimized SDPA path reuses masks/rotary tensors and
+blocks local attention; FA2 packs valid tokens through attention and MLP layers.
+They use identical rendering, adaptive budgets, heads and candidate order, but
+BF16 rounding can change probabilities and occasionally the selected candidate.
+Do not assume bitwise parity when changing backends.
+
+The CLI exposes `--attn-implementation auto|sdpa|flash_attention_2` as well.
+Backend selection is made at loading, not per prediction call.
 
 Compilation is lazy: the first prediction includes compilation time. Input shape
 changes can cause further compilation. Tokenization and typed output processing

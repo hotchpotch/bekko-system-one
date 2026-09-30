@@ -1,8 +1,17 @@
 """Standalone Bekko v0 typed-decision inference and remote-code interface.
 
+Maintainer note: this source file is already the standalone runtime.
+export_v0.py:runtime_source() copies it verbatim into exported model directories;
+it does not convert imports or inline helpers. The same file can be distributed
+with compatible v0 weights on Hugging Face. Do not add relative imports or
+imports of bekko_system_one: consumers must not need the training package.
+Keep embedded helpers aligned with their training counterparts and preserve the
+isolated-process standalone loading test in tests/test_inference_v0.py.
+
 Install the exported requirements.txt (and a CUDA-compatible PyTorch build for
-GPU use). The exported file includes its helpers and needs no Bekko training
-package, datasets, PEFT, W&B, or external FlashAttention extension.
+GPU use). This source file includes its helpers and needs no Bekko training
+package, datasets, PEFT or W&B. SDPA needs no external FlashAttention extension;
+FA2 is an optional acceleration backend selected at model loading.
 
 Load once, reuse for many requests
 ---------------------------------
@@ -95,7 +104,34 @@ predict counts requests, predict_groups counts decisions.
 Fast execution and memory tuning
 --------------------------------
 Reuse a loaded model, batch requests, and select device="cuda" when available.
-CUDA encoder execution uses BF16 autocast and PyTorch SDPA; CPU uses FP32.
+BekkoSentenceTransformer(..., attn_implementation="auto") is the default:
+CUDA capability 8.0+ with a compatible flash-attn library selects FlashAttention 2;
+otherwise it selects PyTorch SDPA. Force a backend at model load time::
+
+    model = Model(repo, revision=revision, device="cuda", trust_remote_code=True,
+                  attn_implementation="flash_attention_2")
+    # Or attn_implementation="sdpa" to require SDPA without importing flash-attn.
+    # model_kwargs={"attn_implementation": "flash_attention_2"} is also accepted.
+    print(model[0].attn_implementation)  # The backend actually selected.
+
+Explicit FA2 requires CUDA capability 8.0+ and a compatible flash-attn wheel;
+missing or binary-incompatible libraries raise during model loading, never silently
+fall back. Install the optional fa2 extra in the training package, or a flash-attn
+wheel matching your inference environment's Python, PyTorch and CUDA versions.
+SDPA has no external attention dependency. Auto selection happens at loading;
+load again with the desired device/backend when switching devices. Plain ST can
+load the format, but use BekkoSentenceTransformer for backend selection.
+
+For 17M models, SDPA and FA2 generally have little speed difference; SDPA is a
+reasonable dependency-free choice. For 68M and larger models, prefer FA2 for
+throughput, especially on long inputs. This is a sizing guideline, not a speed
+guarantee for every larger checkpoint: measure representative inputs on your GPU,
+excluding loading and warmup. BF16 backend rounding can change probabilities and
+occasionally the selected candidate; the backends are not bitwise interchangeable.
+The SDPA path reuses per-forward masks/rotary tensors and blocks local prefix
+attention; FA2 keeps valid tokens packed through attention and feed-forward layers.
+Both retain the same rendering, input budgets, candidate order and task heads.
+CUDA encoder execution uses BF16 autocast; CPU uses FP32.
 Heads and per-decision softmax use FP32. Small CPU/GPU differences are expected.
 Tune batch_size for the tokenization/sorting window and token_budget for GPU
 work per microbatch; reduce the latter when memory is tight. A single oversized
@@ -125,7 +161,8 @@ must not exceed positional capacity. prefix_layout overrides instruction_state
 or state_instruction rendering; normally keep the exported default.
 
 CLI: python inference_v0.py --model PATH_OR_HUB_ID --input requests.json
-Add --device cuda, --compile, --batch-size 128, --token-budget 64000, or
+Add --device cuda, --attn-implementation flash_attention_2 (or sdpa/auto),
+--compile, --batch-size 128, --token-budget 64000, or
 --no-show-progress-bar as needed. Input JSON can be one request or an array;
 results are JSON on stdout and progress is on stderr.
 """
@@ -133,8 +170,10 @@ results are JSON on stdout and progress is on stderr.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
-from dataclasses import asdict
+import math
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -148,10 +187,400 @@ from tqdm.auto import tqdm
 from transformers import AutoConfig, AutoModel, AutoTokenizer, PreTrainedTokenizerBase
 from transformers.models.modernbert.modeling_modernbert import apply_rotary_pos_emb
 
-from .choice import ChoiceInteraction
-from .data import DecisionMetadata, Group, PreparedGroup, collate_groups, to_device
-from .decisions import interpret_prediction
-from .query_budget import QueryParts, allocate_query_budget, balanced_query_ids
+
+@dataclass(frozen=True)
+class QueryParts:
+    """Explicit boundaries: never infer them from text inside the context."""
+
+    instruction: str
+    context: str
+    system: str = ""
+    layout: str = "instruction_state"
+
+    def __post_init__(self):
+        if not isinstance(self.instruction, str) or not self.instruction.strip():
+            raise ValueError("instruction must be nonempty text")
+        if not isinstance(self.context, str) or not isinstance(self.system, str):
+            raise ValueError("context and system must be text")
+        if self.layout not in {"instruction_state", "state_instruction"}:
+            raise ValueError("Unsupported query layout")
+
+    def render(self):
+        prefix = f"{self.system}\n\n" if self.system.strip() else ""
+        instruction = f"Instruction: {self.instruction}"
+        context = f"State: {self.context}"
+        body = (
+            (instruction, context) if self.layout == "instruction_state" else (context, instruction)
+        )
+        return prefix + "\n".join(body)
+
+
+def allocate_query_budget(instruction_length, context_length, budget):
+    """Reserve half per field, transfer unused capacity, favor instruction on odd budgets."""
+    if min(instruction_length, context_length, budget) < 0:
+        raise ValueError("Lengths and budget must be nonnegative")
+    instruction = min(instruction_length, (budget + 1) // 2)
+    context = min(context_length, budget // 2)
+    instruction += min(instruction_length - instruction, budget - instruction - context)
+    context += min(context_length - context, budget - instruction - context)
+    return instruction, context
+
+
+def balanced_query_ids(tokenizer, parts, query_length):
+    """Reserve system/markers first, then share the remaining budget between fields.
+
+    Tokenize components independently so both layouts retain exactly the same
+    content tokens. Truncate field tails, without decoding and re-tokenizing.
+    """
+    if tokenizer.truncation_side != "right":
+        raise ValueError("balanced query truncation requires a right-truncating tokenizer")
+    if any(not isinstance(p, QueryParts) for p in parts):
+        raise ValueError("balanced query truncation requires QueryParts for every query")
+    if not parts:
+        return []
+    limits = [query_length] * len(parts) if isinstance(query_length, int) else list(query_length)
+    if len(limits) != len(parts) or any(limit < 3 for limit in limits):
+        raise ValueError("One valid query budget is required per query")
+    markers = tokenizer(["Instruction: ", "State: ", "\n"], add_special_tokens=False)["input_ids"]
+    instruction_marker, context_marker, separator = markers
+    texts = []
+    for p in parts:
+        texts.extend([f"{p.system}\n\n" if p.system.strip() else "", p.instruction, p.context])
+    encoded = tokenizer(texts, add_special_tokens=False, truncation=True, max_length=max(limits))[
+        "input_ids"
+    ]
+    result = []
+    overhead = 2 + sum(map(len, markers))
+    for i, p in enumerate(parts):
+        system, instruction, context = encoded[3 * i : 3 * i + 3]
+        budget = limits[i] - overhead - len(system)
+        if budget < 2:
+            raise ValueError("System prompt and query markers leave fewer than two content tokens")
+        ni, nc = allocate_query_budget(len(instruction), len(context), budget)
+        ins = instruction_marker + instruction[:ni]
+        ctx = context_marker + context[:nc]
+        body = ins + separator + ctx if p.layout == "instruction_state" else ctx + separator + ins
+        result.append([tokenizer.cls_token_id, *system, *body, tokenizer.sep_token_id])
+    return result
+
+
+@dataclass(frozen=True)
+class DecisionMetadata:
+    """Non-tokenized candidate alignment and source identity; never model features."""
+
+    candidate_ids: tuple[str, ...] | None = None
+    candidate_values: tuple[float, ...] | None = None
+    kind: str | None = None
+    case_id: str | None = None
+    group_id: str | None = None
+    decision_id: str | None = None
+
+    def __post_init__(self):
+        if self.kind not in {None, "judgment", "ranking"}:
+            raise ValueError("metadata kind must be judgment or ranking")
+        if self.candidate_ids is not None:
+            ids = tuple(self.candidate_ids)
+            if not ids or any(not isinstance(i, str) or not i for i in ids):
+                raise ValueError("candidate_ids must be nonempty strings")
+            if len(set(ids)) != len(ids):
+                raise ValueError("candidate_ids must be unique")
+            object.__setattr__(self, "candidate_ids", ids)
+        if self.candidate_values is not None:
+            values = tuple(self.candidate_values)
+            if not values or any(not math.isfinite(v) for v in values):
+                raise ValueError("candidate_values must be finite")
+            if len(set(values)) != len(values):
+                raise ValueError("candidate_values must be unique")
+            object.__setattr__(self, "candidate_values", values)
+        for identity in (self.case_id, self.group_id, self.decision_id):
+            if identity is not None and not isinstance(identity, str):
+                raise ValueError("metadata identities must be strings")
+
+    @property
+    def yes_index(self):
+        ids = self.candidate_ids
+        if ids is not None and set(ids) in ({"true", "false"}, {"yes", "no"}):
+            return ids.index("true" if "true" in ids else "yes")
+        return None
+
+    @property
+    def score_values(self):
+        if self.kind == "judgment" and self.candidate_values is not None:
+            if len(self.candidate_values) >= 2:
+                return self.candidate_values
+        return None
+
+
+@dataclass(frozen=True)
+class Group:
+    query: str
+    candidates: list[str]
+    task: str = "reranker"
+    target: list[float] | None = None
+    query_parts: QueryParts | None = None
+    metadata: DecisionMetadata | None = None
+
+    def __post_init__(self):
+        if self.metadata is not None:
+            for values in (self.metadata.candidate_ids, self.metadata.candidate_values):
+                if values is not None and len(values) != len(self.candidates):
+                    raise ValueError("candidate metadata must align with candidates")
+        if self.query_parts is not None and self.query_parts.render() != self.query:
+            raise ValueError("query must match query_parts.render()")
+        if self.task not in {"reranker", "choice", "noul", "score"}:
+            raise ValueError(f"Unknown task: {self.task}")
+        if not isinstance(self.query, str) or not self.query.strip():
+            raise ValueError("query must be nonempty text")
+        if not self.candidates or any(not isinstance(c, str) for c in self.candidates):
+            raise ValueError("candidates must contain text")
+        if self.target is not None and (
+            len(self.target) != len(self.candidates)
+            or any(not math.isfinite(t) or t < 0 for t in self.target)
+            or abs(sum(self.target) - 1) > 1e-5
+        ):
+            raise ValueError("target must be a normalized distribution aligned with candidates")
+
+    @classmethod
+    def from_dict(cls, row):
+        # Metadata and targets are never concatenated into inference inputs.
+        return cls(
+            query=row["query"],
+            candidates=row["candidates"],
+            task=row.get("task", "reranker"),
+            target=row.get("target"),
+            query_parts=QueryParts(**row["query_parts"]) if row.get("query_parts") else None,
+            metadata=DecisionMetadata(**row["metadata"]) if row.get("metadata") else None,
+        )
+
+
+@dataclass
+class PreparedGroup:
+    key: str | tuple[int, ...]
+    task: str
+    query: list[int]
+    documents: list[list[int]]
+    target: list[float] | None
+    metadata: DecisionMetadata | None = None
+
+    @property
+    def cost(self):
+        return len(self.query) * len(self.documents) + sum(map(len, self.documents))
+
+
+def prepare_groups(groups, encoder):
+    queries = list(dict.fromkeys((g.query, g.query_parts) for g in groups))
+    documents = list(dict.fromkeys((g.task, d) for g in groups for d in g.candidates))
+    qids, dids = encoder.tokenize_branches(
+        [q for q, _ in queries],
+        [d for _, d in documents],
+        [t for t, _ in documents],
+        query_parts=[p for _, p in queries],
+    )
+    qmap, dmap = dict(zip(queries, qids, strict=True)), dict(zip(documents, dids, strict=True))
+    return [
+        PreparedGroup(
+            tuple(qmap[g.query, g.query_parts]),
+            g.task,
+            qmap[g.query, g.query_parts],
+            [dmap[g.task, d] for d in g.candidates],
+            g.target,
+            g.metadata,
+        )
+        for g in groups
+    ]
+
+
+def collate_groups(groups, encoder):
+    queries, docs, owners, seen, indices = [], [], [], {}, {}
+    for group in groups:
+        if group.key not in seen:
+            seen[group.key] = len(queries)
+            queries.append(group.query)
+        indices.setdefault(group.task, []).extend(
+            range(len(docs), len(docs) + len(group.documents))
+        )
+        docs.extend(group.documents)
+        owners.extend([seen[group.key]] * len(group.documents))
+    features = encoder.collate_tokens(queries, docs, owners)
+    features["head_indices"] = {next(iter(indices)): None} if len(indices) == 1 else indices
+    choice_rows, offset = [], 0
+    for group in groups:
+        count = len(group.documents)
+        if group.task == "choice":
+            choice_rows.append(list(range(offset, offset + count)))
+        offset += count
+    if choice_rows:
+        width = max(map(len, choice_rows))
+        features["choice_indices"] = torch.tensor(
+            [row + [0] * (width - len(row)) for row in choice_rows], dtype=torch.long
+        )
+        features["choice_mask"] = torch.tensor(
+            [[True] * len(row) + [False] * (width - len(row)) for row in choice_rows]
+        )
+    return features
+
+
+def to_device(features, device):
+    return {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in features.items()}
+
+
+def prepare_batch(model, groups):
+    """Build a feature dictionary accepted by an ordinary SentenceTransformer."""
+    return to_device(collate_groups(prepare_groups(groups, model[0]), model[0]), model.device)
+
+
+def work_tokens(items, padded_documents=True):
+    cost = sum(x.cost for x in items)
+    if padded_documents and items:
+        lengths = [len(d) for x in items for d in x.documents]
+        cost += len(lengths) * max(lengths) - sum(lengths)
+    return cost
+
+
+def pack_groups(items, budget, padded_documents=True):
+    """First-fit decreasing; never split the candidates of a training group."""
+    if budget < 1:
+        raise ValueError("Token budget must be positive")
+    groups, statistics, ordered = [], [], []
+    for item in items:
+        lengths = [len(d) for d in item.documents]
+        ordered.append((item, item.cost, len(lengths), sum(lengths), max(lengths)))
+    for item, cost, count, total, maximum in sorted(
+        ordered, key=lambda x: (x[4], x[1]), reverse=True
+    ):
+        for i, (old_cost, old_count, old_total, old_max) in enumerate(statistics):
+            combined = old_cost + cost, old_count + count, old_total + total, max(old_max, maximum)
+            estimate = combined[0]
+            if padded_documents:
+                estimate += combined[1] * combined[3] - combined[2]
+            if estimate <= budget:
+                groups[i].append(item)
+                statistics[i] = combined
+                break
+        else:
+            groups.append([item])
+            statistics.append((cost, count, total, maximum))
+    return groups
+
+
+@dataclass(frozen=True)
+class ChoicePrediction:
+    selected_id: str
+    probabilities: dict[str, float]
+
+
+@dataclass(frozen=True)
+class NoulPrediction:
+    probability_yes: float
+    probabilities: dict[str, float]
+
+
+@dataclass(frozen=True)
+class ScorePrediction:
+    score: float
+    normalized_score: float
+    probabilities: dict[str, float]
+    values: dict[str, float]
+
+
+def validate_typed_group(group: Group):
+    metadata = group.metadata
+    if metadata is None or metadata.candidate_ids is None or metadata.kind == "ranking":
+        raise ValueError(
+            "Typed prediction requires judgment candidate IDs; use predict for ranking"
+        )
+    if group.task == "noul" and metadata.yes_index is None:
+        raise ValueError("Noul requires true/false or yes/no candidate IDs")
+    if group.task == "score" and metadata.score_values is None:
+        raise ValueError(
+            "Score requires judgment metadata and at least two distinct numeric values"
+        )
+    if group.task not in {"choice", "noul", "score"}:
+        raise ValueError("Typed prediction supports choice, noul and ordinal score")
+
+
+def interpret_prediction(
+    group: Group, probabilities
+) -> ChoicePrediction | NoulPrediction | ScorePrediction:
+    """Map probabilities to IDs and values; never infer numbers from candidate text."""
+    validate_typed_group(group)
+    p = torch.as_tensor(probabilities, dtype=torch.float64).detach().cpu()
+    if (
+        p.ndim != 1
+        or len(p) != len(group.candidates)
+        or not torch.isfinite(p).all()
+        or (p < 0).any()
+        or abs(p.sum().item() - 1) > 1e-5
+    ):
+        raise ValueError("Expected normalized probabilities aligned with candidates")
+    metadata = group.metadata
+    assert metadata is not None and metadata.candidate_ids is not None
+    mapping = dict(zip(metadata.candidate_ids, p.tolist(), strict=True))
+    if group.task == "choice":
+        return ChoicePrediction(metadata.candidate_ids[int(p.argmax())], mapping)
+    if group.task == "noul":
+        assert metadata.yes_index is not None
+        return NoulPrediction(p[metadata.yes_index].item(), mapping)
+    values = metadata.score_values
+    assert values is not None
+    score = sum(prob * value for prob, value in zip(p.tolist(), values, strict=True))
+    return ScorePrediction(
+        score,
+        (score - min(values)) / (max(values) - min(values)),
+        mapping,
+        dict(zip(metadata.candidate_ids, values, strict=True)),
+    )
+
+
+class ChoiceInteraction(nn.Module):
+    """One small attention block, isolated by decision rather than shared prefix.
+
+    Zero-initializing only the final projection preserves the existing scorer.
+    No candidate position embeddings or dropout are used.
+    """
+
+    def __init__(self, hidden_size, width=128, heads=4):
+        super().__init__()
+        if any(not isinstance(v, int) or isinstance(v, bool) or v < 1 for v in (width, heads)):
+            raise ValueError("Choice width and heads must be positive integers")
+        if width % heads:
+            raise ValueError("Choice width must be divisible by heads")
+        self.width, self.heads = width, heads
+        self.project = nn.Linear(hidden_size, width)
+        self.norm = nn.LayerNorm(width)
+        self.qkv = nn.Linear(width, width * 3)
+        self.attention_out = nn.Linear(width, width)
+        self.ffn = nn.Sequential(
+            nn.LayerNorm(width),
+            nn.Linear(width, width * 2),
+            nn.GELU(),
+            nn.Linear(width * 2, width),
+        )
+        self.output = nn.Linear(width, 1)
+        nn.init.zeros_(self.output.weight)
+        nn.init.zeros_(self.output.bias)
+
+    def forward(self, hidden, indices, mask):
+        x = self.project(hidden)[indices]
+        batch, count, _ = x.shape
+        qkv = self.qkv(self.norm(x)).reshape(batch, count, 3, self.heads, -1)
+        q, k, v = qkv.unbind(2)
+        attended = (
+            F.scaled_dot_product_attention(
+                q.transpose(1, 2),
+                k.transpose(1, 2),
+                v.transpose(1, 2),
+                attn_mask=mask[:, None, None, :],
+            )
+            .transpose(1, 2)
+            .reshape(batch, count, self.width)
+        )
+        x = x + self.attention_out(attended)
+        x = x + self.ffn(x)
+        delta = self.output(x).masked_fill(~mask.unsqueeze(-1), 0)
+        return hidden.new_zeros((hidden.shape[0], 1)).index_add(
+            0, indices.flatten(), delta.flatten(0, 1)
+        )
 
 
 def _text(value):
@@ -248,66 +677,244 @@ def input_groups(case_input, *, prefix_layout="instruction_state"):
 
 
 class _SDPAPrefix(nn.Module):
-    """Independent prefix self-attention and suffix-aligned document attention."""
+    """Shared-prefix SDPA with per-forward layouts and blocked local attention."""
 
     def __init__(self, backbone):
-        """Wrap a ModernBERT backbone for independent shared-prefix SDPA execution."""
         super().__init__()
         self.backbone = backbone
+        self.local_block_size = 256
 
-    def qkv(self, layer, hidden, positions):
-        """Project one layer and apply rotary positions; return query/key/value tensors."""
+    def qkv(self, layer, hidden, rotary):
         attn = layer.attn
         q, k, v = (
             attn.Wqkv(layer.attn_norm(hidden))
             .view(*hidden.shape[:2], 3, -1, attn.head_dim)
             .unbind(2)
         )
-        cos, sin = self.backbone.rotary_emb(hidden, positions, layer.attention_type)
-        q, k = apply_rotary_pos_emb(q.transpose(1, 2), k.transpose(1, 2), cos, sin)
+        q, k = apply_rotary_pos_emb(q.transpose(1, 2), k.transpose(1, 2), *rotary)
         return q.transpose(1, 2), k.transpose(1, 2), v
 
     @staticmethod
-    def attend(q, k, v, qmask, kmask, window):
-        """Apply masked SDPA, optionally windowed, and zero padded query positions."""
-        qp = qmask.long().cumsum(1) - 1 + (kmask.sum(1) - qmask.sum(1))[:, None]
-        kp = kmask.long().cumsum(1) - 1
-        allowed = kmask[:, None, :].expand(-1, q.shape[1], -1)
+    def layout(qmask, kmask, window):
+        allowed = kmask[:, None, :]
         if window is not None:
+            qp = qmask.long().cumsum(1) - 1 + (kmask.sum(1) - qmask.sum(1))[:, None]
+            kp = kmask.long().cumsum(1) - 1
             allowed = allowed & ((qp[:, :, None] - kp[:, None, :]).abs() <= window)
+        return allowed[:, None]
+
+    @staticmethod
+    def attend(q, k, v, qmask, allowed):
         result = F.scaled_dot_product_attention(
             q.transpose(1, 2),
             k.transpose(1, 2),
             v.transpose(1, 2),
-            attn_mask=allowed[:, None],
+            attn_mask=allowed,
             dropout_p=0.0,
         ).transpose(1, 2)
         return result * qmask[:, :, None, None]
 
+    def blocked_layout(self, mask, window):
+        """Bound local attention work using exact overlapping key windows."""
+        length = mask.shape[1]
+        block = self.local_block_size
+        count = (length + block - 1) // block
+        starts = torch.arange(count, device=mask.device)[:, None] * block
+        queries = starts + torch.arange(block, device=mask.device)[None]
+        keys = starts + torch.arange(-window, block + window, device=mask.device)[None]
+        indices = keys.clamp(0, length - 1)
+        valid = (keys >= 0) & (keys < length)
+        allowed = mask[:, indices][:, :, None, :] & valid[None, :, None, :]
+        allowed = allowed & ((queries[:, :, None] - keys[:, None, :]).abs() <= window)[None]
+        return indices, allowed[:, :, None], count * block - length
+
+    def blocked_attend(self, q, k, v, mask, layout):
+        indices, allowed, padding = layout
+        batch, length, heads, dim = q.shape
+        count, width = indices.shape
+        q = (
+            F.pad(q, (0, 0, 0, 0, 0, padding))
+            .reshape(batch, count, self.local_block_size, heads, dim)
+            .permute(0, 1, 3, 2, 4)
+        )
+        k = k[:, indices].permute(0, 1, 3, 2, 4)
+        v = v[:, indices].permute(0, 1, 3, 2, 4)
+        result = F.scaled_dot_product_attention(
+            q.flatten(0, 1),
+            k.flatten(0, 1),
+            v.flatten(0, 1),
+            attn_mask=allowed.flatten(0, 1),
+            dropout_p=0.0,
+        )
+        result = (
+            result.reshape(batch, count, heads, self.local_block_size, dim)
+            .permute(0, 1, 3, 2, 4)
+            .reshape(batch, -1, heads, dim)[:, :length]
+        )
+        return result * mask[:, :, None, None]
+
     @staticmethod
     def update(layer, hidden, attended):
-        """Apply attention output and MLP residual updates for one encoder layer."""
         hidden = hidden + layer.attn.out_drop(layer.attn.Wo(attended.flatten(2)))
         return hidden + layer.mlp(layer.mlp_norm(hidden))
 
     def forward(self, prefix_ids, prefix_mask, doc_ids, doc_mask, owners):
-        """Encode unique prefixes once and attend each candidate to its owner prefix."""
         prefix = self.backbone.embeddings(prefix_ids)
         hidden = self.backbone.embeddings(doc_ids)
         pp = (prefix_mask.long().cumsum(1) - 1).clamp_min(0)
         pm = prefix_mask[owners]
         dp = (doc_mask.long().cumsum(1) - 1).clamp_min(0) + pm.sum(1)[:, None]
         combined = torch.cat((pm, doc_mask), dim=1)
+        layouts, rotations = {}, {}
         for layer in self.backbone.layers:
-            pq, pk, pv = self.qkv(layer, prefix, pp)
+            kind = layer.attention_type
             window = None if layer.attn.sliding_window is None else layer.attn.sliding_window - 1
-            prefix = self.update(
-                layer, prefix, self.attend(pq, pk, pv, prefix_mask, prefix_mask, window)
+            blocked = window is not None and prefix.shape[1] > self.local_block_size + 2 * window
+            if window not in layouts:
+                pl = (
+                    self.blocked_layout(prefix_mask, window)
+                    if blocked
+                    else self.layout(prefix_mask, prefix_mask, window)
+                )
+                layouts[window] = pl, self.layout(doc_mask, combined, window)
+            if kind not in rotations:
+                rotations[kind] = (
+                    self.backbone.rotary_emb(prefix, pp, kind),
+                    self.backbone.rotary_emb(hidden, dp, kind),
+                )
+            pq, pk, pv = self.qkv(layer, prefix, rotations[kind][0])
+            pl, dl = layouts[window]
+            attended = (
+                self.blocked_attend(pq, pk, pv, prefix_mask, pl)
+                if blocked
+                else self.attend(pq, pk, pv, prefix_mask, pl)
             )
-            q, k, v = self.qkv(layer, hidden, dp)
+            prefix = self.update(layer, prefix, attended)
+            q, k, v = self.qkv(layer, hidden, rotations[kind][1])
             k, v = torch.cat((pk[owners], k), 1), torch.cat((pv[owners], v), 1)
-            hidden = self.update(layer, hidden, self.attend(q, k, v, doc_mask, combined, window))
+            hidden = self.update(layer, hidden, self.attend(q, k, v, doc_mask, dl))
         return self.backbone.final_norm(hidden)
+
+
+def _load_fa2():
+    """Load the optional native wheel, including its binary compatibility check."""
+    try:
+        return importlib.import_module("flash_attn").flash_attn_varlen_func
+    except (ImportError, OSError, RuntimeError, AttributeError) as error:
+        raise RuntimeError(
+            "flash_attention_2 requires a compatible flash-attn wheel for this PyTorch/CUDA "
+            "installation; install the fa2 extra or select attn_implementation='sdpa'"
+        ) from error
+
+
+class _TokenLayout:
+    def __init__(self, mask):
+        self.indices = mask.flatten().nonzero().flatten()
+        self.lengths = mask.sum(1)
+        self.cumulative = F.pad(self.lengths.cumsum(0).to(torch.int32), (1, 0))
+        self.positions = (mask.long().cumsum(1) - 1).flatten()[self.indices]
+        self.maximum = int(self.lengths.max())
+
+
+class _FA2Prefix(nn.Module):
+    """Keep real tokens packed through attention, projections and feed-forward layers."""
+
+    def __init__(self, backbone):
+        super().__init__()
+        self.backbone = backbone
+        self.attention = _load_fa2()
+
+    def rotary(self, hidden, positions):
+        return {
+            kind: tuple(
+                x.squeeze(0) for x in self.backbone.rotary_emb(hidden, positions[None], kind)
+            )
+            for kind in set(self.backbone.config.layer_types)
+        }
+
+    @staticmethod
+    def qkv(layer, hidden, rotary):
+        q, k, v = (
+            layer.attn.Wqkv(layer.attn_norm(hidden))
+            .view(hidden.shape[0], 3, -1, layer.attn.head_dim)
+            .unbind(1)
+        )
+        q, k = apply_rotary_pos_emb(q, k, *rotary, unsqueeze_dim=1)
+        return q, k, v
+
+    @staticmethod
+    def update(layer, hidden, attended):
+        hidden = hidden + layer.attn.out_drop(layer.attn.Wo(attended.flatten(1)))
+        return hidden + layer.mlp(layer.mlp_norm(hidden))
+
+    def forward(self, prefix_ids, prefix_mask, doc_ids, doc_mask, owners):
+        if not prefix_ids.is_cuda:
+            raise RuntimeError("FA2 encoder requires CUDA")
+        pl, dl = _TokenLayout(prefix_mask), _TokenLayout(doc_mask)
+        prefix_lengths = pl.lengths[owners]
+        kv_lengths = prefix_lengths + dl.lengths
+        cuk = F.pad(kv_lengths.cumsum(0).to(torch.int32), (1, 0))
+        total, maximum = int(cuk[-1]), int(kv_lengths.max())
+        branches = torch.repeat_interleave(
+            torch.arange(len(owners), device=owners.device), kv_lengths, output_size=total
+        )
+        offsets = torch.arange(total, device=owners.device) - cuk[branches]
+        gather = torch.where(
+            offsets < prefix_lengths[branches],
+            pl.cumulative[owners[branches]] + offsets,
+            pl.indices.numel() + dl.cumulative[branches] + offsets - prefix_lengths[branches],
+        ).long()
+        documents = torch.repeat_interleave(
+            torch.arange(len(owners), device=owners.device),
+            dl.lengths,
+            output_size=dl.indices.numel(),
+        )
+        prefix = self.backbone.embeddings(prefix_ids.flatten()[pl.indices])
+        hidden = self.backbone.embeddings(doc_ids.flatten()[dl.indices])
+        pr, dr = (
+            self.rotary(prefix, pl.positions),
+            self.rotary(hidden, dl.positions + prefix_lengths[documents]),
+        )
+        for layer in self.backbone.layers:
+            kind = layer.attention_type
+            window = (
+                (-1, -1)
+                if layer.attn.sliding_window is None
+                else (layer.attn.sliding_window - 1,) * 2
+            )
+            pq, pk, pv = self.qkv(layer, prefix, pr[kind])
+            attended = self.attention(
+                pq,
+                pk,
+                pv,
+                pl.cumulative,
+                pl.cumulative,
+                pl.maximum,
+                pl.maximum,
+                dropout_p=0.0,
+                causal=False,
+                window_size=window,
+            )
+            prefix = self.update(layer, prefix, attended)
+            q, k, v = self.qkv(layer, hidden, dr[kind])
+            k = torch.cat((pk, k)).index_select(0, gather)
+            v = torch.cat((pv, v)).index_select(0, gather)
+            attended = self.attention(
+                q,
+                k,
+                v,
+                dl.cumulative,
+                cuk,
+                dl.maximum,
+                maximum,
+                dropout_p=0.0,
+                causal=False,
+                window_size=window,
+            )
+            hidden = self.update(layer, hidden, attended)
+        hidden = self.backbone.final_norm(hidden)
+        output = hidden.new_zeros((doc_ids.numel(), hidden.shape[-1]))
+        return output.index_copy(0, dl.indices, hidden).view(*doc_ids.shape, hidden.shape[-1])
 
 
 class BekkoInference(InputModule):
@@ -356,6 +963,7 @@ class BekkoInference(InputModule):
         ):
             raise ValueError("Expected distinct supported task heads")
         self.encoder = _SDPAPrefix(backbone)
+        self.attn_implementation = "sdpa"
         self.tokenizer = tokenizer
         self.query_length, self.document_length = query_length, document_length
         self.query_truncation, self.tasks = query_truncation, list(tasks)
@@ -386,6 +994,37 @@ class BekkoInference(InputModule):
             choice_interaction=choice_interaction,
             prefix_layout=prefix_layout,
         )
+
+    def set_attention_implementation(self, implementation="auto", *, device=None):
+        """Select an encoder without changing weights, budgets or the saved configuration.
+
+        Auto prefers compatible FA2 on CUDA capability 8+ and otherwise uses SDPA.
+        Explicit FA2 never falls back. Selection clears any compiled encoder.
+        """
+        if implementation not in {"auto", "sdpa", "flash_attention_2"}:
+            raise ValueError("attn_implementation must be auto, sdpa or flash_attention_2")
+        device = torch.device(device) if device is not None else next(self.parameters()).device
+        if implementation != "sdpa":
+            supported = device.type == "cuda" and torch.cuda.get_device_capability(device)[0] >= 8
+            if not supported:
+                if implementation == "flash_attention_2":
+                    raise ValueError("flash_attention_2 requires a CUDA GPU with capability 8.0+")
+                implementation = "sdpa"
+            else:
+                try:
+                    _load_fa2()
+                except RuntimeError:
+                    if implementation == "flash_attention_2":
+                        raise
+                    implementation = "sdpa"
+                else:
+                    implementation = "flash_attention_2"
+        if implementation != self.attn_implementation:
+            encoder_class = _FA2Prefix if implementation == "flash_attention_2" else _SDPAPrefix
+            self.encoder = encoder_class(self.encoder.backbone).train(self.training)
+            self._compiled_forward = None
+            self.attn_implementation = implementation
+        return self
 
     def compile_inference(self, *, mode="default", dynamic=True, backend="inductor"):
         """Enable lazy compilation of encoder.forward and return this runtime.
@@ -458,6 +1097,8 @@ class BekkoInference(InputModule):
                 or any(p is None or p.render() != q for p, q in zip(parts, queries, strict=True))
             ):
                 raise ValueError("Balanced truncation requires matching QueryParts")
+            # Reconstruct at the boundary: callers may use training-side dataclasses.
+            parts = [QueryParts(p.instruction, p.context, p.system, p.layout) for p in parts]
             return balanced_query_ids(self.tokenizer, parts, limits)
         encoded = self.tokenizer(
             queries,
@@ -879,13 +1520,23 @@ class BekkoSentenceTransformer(SentenceTransformer):
     The same class is included in the standalone exported inference_v0.py.
     """
 
-    def __init__(self, *args, **kwargs):
-        """Load an exported v0 model with standard ST arguments, then validate its module."""
+    def __init__(self, *args, attn_implementation="auto", **kwargs):
+        """Load native weights, then select SDPA or optional FA2 on the final device."""
+        model_kwargs = dict(kwargs.get("model_kwargs") or {})
+        nested = model_kwargs.pop("attn_implementation", None)
+        if nested is not None:
+            if attn_implementation != "auto" and attn_implementation != nested:
+                raise ValueError("Conflicting attn_implementation arguments")
+            attn_implementation = nested
+        if attn_implementation not in {"auto", "sdpa", "flash_attention_2"}:
+            raise ValueError("attn_implementation must be auto, sdpa or flash_attention_2")
+        kwargs["model_kwargs"] = model_kwargs
         super().__init__(*args, **kwargs)
         # Remote-code loading creates a distinct Python class identity, so check
         # the portable module contract instead of using isinstance.
         if len(self) != 1 or getattr(self[0], "config_file_name", None) != "inference_config.json":
             raise ValueError("BekkoSentenceTransformer requires an exported v0 checkpoint")
+        cast(Any, self[0]).set_attention_implementation(attn_implementation, device=self.device)
 
     def predict(
         self,
@@ -1010,6 +1661,9 @@ def main():
     )
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--compile", action="store_true")
+    parser.add_argument(
+        "--attn-implementation", choices=["auto", "sdpa", "flash_attention_2"], default="auto"
+    )
     parser.add_argument("--token-budget", type=int, default=64000)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--query-length", type=int)
@@ -1021,6 +1675,7 @@ def main():
     model = BekkoSentenceTransformer(
         args.model,
         device=args.device,
+        attn_implementation=args.attn_implementation,
         trust_remote_code=True,
         local_files_only=args.local_files_only,
     )

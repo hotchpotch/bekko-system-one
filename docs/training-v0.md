@@ -1,21 +1,23 @@
 # Training Bekko System One v0
 
 These release recipes run entirely from this repository. They initialize from the
-public `cross-encoder/ettin-reranker-{17,68,400}m-v1` models and read two private
+public `cross-encoder/ettin-reranker-{17,68,400}m-v1` models and read two
 Hugging Face datasets through `datasets.load_dataset()`:
 
 - [Bekko v0](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0): train and validation.
 - [S1MB](https://huggingface.co/datasets/hotchpotch/s1mb-dataset): test only.
 
-No previous training checkpoint, sibling checkout, local dataset export, or
-conversion script is required. Dataset access and the initial model download
-require network access and a Hugging Face account authorized for both datasets.
+Bekko v0 is public at release. S1MB is a separate evaluation source; check its
+dataset card for access conditions. Downloads require network access. The YAML
+recipes set `token: true` for both sources, so they require a saved Hugging Face
+token even for public data. Set a public source's `token: false` for anonymous
+access. No initial training checkpoint or local dataset conversion is required.
 Training writes a self-contained Sentence Transformers model under the run's
 `model/` directory. It does not upload a model release automatically.
 
-For training on your own data, start with the [README](../README.md) and
-[training reference](training.md). These recipes require dataset access; they
-are not an anonymous-download quickstart.
+For a first run without S1MB or W&B, use the
+[public Bekko training quickstart](quickstart-training.md). For your own data,
+see the [README](../README.md) and [training reference](training.md).
 
 ## Setup
 
