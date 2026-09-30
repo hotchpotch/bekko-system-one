@@ -1042,3 +1042,5 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 .calculation-total { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 8px; padding-top: 9px; border-top: 1px solid #dce4d6; }
 .calculation-total strong { white-space: nowrap; color: #235d40; font-size: 16px; }
 .calculation-footnote { display: block; font-size: 11px; line-height: 1.6; color: #617362; }
+
+.input-language-hint { margin: 6px 0 14px; color: #617362; font-size: 12px; line-height: 1.5; }

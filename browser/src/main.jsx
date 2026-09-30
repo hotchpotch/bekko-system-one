@@ -572,12 +572,14 @@ function App() {
               </div>
               <Textarea
                 id="instruction"
+                aria-describedby="input-language-hint"
                 label={form.task === "noul" ? "Question to answer" : form.task === "choice" ? "Selection instructions" : "Scoring instructions"}
                 rows={2}
                 required
                 value={form.instruction}
                 onChange={(e) => change("instruction", e.target.value)}
               />
+              <p id="input-language-hint" className="input-language-hint">Use English for questions, context, and options.</p>
               <div className="label-row">
                 <div className="context-heading">
                   <h3>Context</h3>
