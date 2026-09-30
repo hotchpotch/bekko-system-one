@@ -1011,3 +1011,5 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
   .model-info-outlook { display: block; }
   .model-info-outlook h3 { margin: 0 0 8px; }
 }
+
+.project-link .github-icon { flex-shrink: 0; }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Info, ChevronDown, HardDriveDownload, ArrowUpRight, BookOpen, Code2, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
+import { Info, ChevronDown, HardDriveDownload, ArrowUpRight, BookOpen, Download, LoaderCircle, CircleCheck, Cpu, CircuitBoard, Play, RotateCcw, Plus, Timer, Braces, ChartNoAxesColumnIncreasing, SlidersHorizontal } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import examples from "./examples.json";
@@ -335,7 +335,7 @@ function App() {
               const Link = placeholder ? "span" : "a";
               return (
               <Link className="project-link" key={label} href={placeholder ? undefined : href} target={placeholder ? undefined : "_blank"} rel={placeholder ? undefined : "noopener noreferrer"}>
-                {label === "Technical article" ? <BookOpen size={15} aria-hidden="true" /> : <Code2 size={15} aria-hidden="true" />}
+                {label === "Technical article" ? <BookOpen size={15} aria-hidden="true" /> : <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="github-icon"><path d="M12 .75a11.25 11.25 0 0 0-3.558 21.923c.563.104.768-.244.768-.542 0-.267-.01-.975-.015-1.914-3.13.68-3.79-1.508-3.79-1.508-.512-1.3-1.25-1.646-1.25-1.646-1.022-.698.078-.684.078-.684 1.13.08 1.725 1.16 1.725 1.16 1.005 1.724 2.636 1.226 3.278.938.102-.729.393-1.226.715-1.508-2.498-.284-5.124-1.249-5.124-5.562 0-1.229.439-2.233 1.159-3.02-.116-.285-.503-1.43.11-2.98 0 0 .945-.303 3.094 1.154a10.79 10.79 0 0 1 5.63 0c2.148-1.457 3.09-1.153 3.09-1.153.615 1.549.228 2.694.112 2.979.722.787 1.158 1.791 1.158 3.02 0 4.324-2.63 5.275-5.136 5.553.404.348.766 1.034.766 2.084 0 1.504-.014 2.718-.014 3.087 0 .3.203.65.774.54A11.251 11.251 0 0 0 12 .75Z" /></svg>}
                 <span>{label}</span>{placeholder && <span className="coming-soon">Coming soon</span>}
               </Link>
               );
@@ -352,17 +352,17 @@ function App() {
         <div className="model-info-content">
           <section className="model-info-section">
             <h3>What works well</h3>
-            <p>Bekko v0 was trained on 100+ task-specific dataset subsets covering classification, selection, and scoring. It often works best when your question and context resemble those tasks.</p>
+            <p>bekko-system-one-v0 was trained on 100+ task-specific dataset subsets covering classification, selection, and scoring. It often works best when your question and context resemble those tasks.</p>
             <p>The examples here were deliberately selected to show cases it handles well; they are not a measure of general-purpose accuracy.</p>
           </section>
           <section className="model-info-section">
             <h3>Where it falls short</h3>
-            <p>Training across many datasets does not automatically teach a model to handle unfamiliar instructions or domains. Bekko v0 still struggles with that transfer, and even simple questions can produce confidently wrong answers.</p>
+            <p>Training across many datasets does not automatically teach a model to handle unfamiliar instructions or domains. bekko-system-one-v0 still struggles with that transfer, and even simple questions can produce confidently wrong answers.</p>
             <p>These models are intended for English input.</p>
           </section>
           <section className="model-info-outlook">
             <h3>Why explore it?</h3>
-            <p>Bekko v0 is not a replacement for Jev’s broad generalization. It demonstrates how small models can make useful, structured decisions directly in your browser—a starting point for exploring more capable on-device AI.</p>
+            <p>bekko-system-one-v0 is not a replacement for Jev’s broad generalization. It demonstrates how small models can make useful, structured decisions directly in your browser—a starting point for exploring more capable on-device AI.</p>
           </section>
         </div>
       </details>
