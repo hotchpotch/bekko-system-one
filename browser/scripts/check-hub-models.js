@@ -8,7 +8,7 @@ async (page) => {
     await select('model',model);
     if(!(await page.locator('#model-status').textContent()).includes('Not loaded')) throw Error('Model switch must clear session');
     for(const task of ['Noul (Yes/No)','Choice','Score']) {
-      await select('task',task); await page.locator('#run-example').click();
+      await page.getByRole("radio", {name:task, exact:true}).check(); await page.locator('#run-example').click();
       await page.waitForFunction(()=>!document.querySelector('#run').disabled,null,{timeout:180000});
       const result=JSON.parse(await page.locator('#response-json').textContent());
       if(result.error) throw Error(result.error);

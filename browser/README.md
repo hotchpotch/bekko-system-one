@@ -290,7 +290,7 @@ results when an adapter is available, and explicitly reports when it is not.
 `check-hub-models.js` exercises all three decision types on the 17M and 68M models
 using CPU. WebGPU validation should also be performed on the intended hardware.
 
-## Deploy to a private Hugging Face Space
+## Deploy to a Hugging Face Space
 
 The authenticated model-download proxy is available only through `npm run dev`.
 A static build uses direct Hub URLs and contains no token. Its configured models
@@ -317,12 +317,13 @@ hf spaces wait YOUR_ACCOUNT/YOUR_SPACE --timeout 5m
 
 Always pass your own Space ID. Omitting it targets the maintainer's default
 Space. The script creates a **private Static Space**, or checks that an existing
-Space is private and static before uploading. It never changes visibility.
+Space is static before uploading. Existing public and private Spaces are supported;
+the script preserves their visibility.
 Previously uploaded assets are retained so existing browser sessions can finish
 using their original build.
 
 The Space serves static assets; inference still runs in the visitor's browser.
-After the models are publicly accessible, static deployments download them
+Static deployments download the public release models
 directly from the pinned Hub revisions. Space visibility and model repository
 visibility are independent. Deployment credentials belong
 in the CLI environment, never in frontend files.
