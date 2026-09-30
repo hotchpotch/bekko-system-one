@@ -1,13 +1,25 @@
 # Bekko System One
 
-> Small models for choosing, judging, scoring, and reranking.
+> Small System One decision models for choosing, judging, scoring, and reranking.
 
-[Models](#model-catalog) · [Quickstart](#quickstart) ·
+[Models](#model-catalog) · [Quickstart](#quickstart) · [Benchmarks](#benchmarks) ·
 [Browser app](browser/README.md) · [Training guide](docs/quickstart-training.md) ·
 [Training dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
 
-Bekko System One turns an instruction, context, and a set of candidates into a
-structured decision. Use it to route a support request, check whether evidence
+Bekko System One is an **experimental project for training and running very
+small System One decision models**, in the same category as
+[TypeSafe AI's Jev](https://docs.typesafe.ai/concepts/system-one). The v0 family
+spans 17M to 400M parameters. These models turn instructions, context, and
+candidates into typed decisions and probabilities that software can use directly.
+
+**Version 0 has limited generalization, but can still perform very well on some
+tasks.** Its strongest overall benchmark results should be read alongside its
+weaker results on instruction- and context-adaptation tasks. Bekko's training
+set also includes dataset families represented in the evaluation; strong results
+on those tasks do not establish broad generalization. The
+[benchmark comparison](#benchmarks) below shows both views.
+
+Use it to route a support request, check whether evidence
 supports a statement, rate an answer on your own scale, or rank retrieved
 passages. It provides training and inference with Sentence Transformers, plus
 standalone Python and ONNX exports for deployment.
@@ -195,19 +207,90 @@ prediction examples. To deploy independently of the training package,
 [export a standalone model](docs/inference-v0.md) or a supported
 [ONNX checkpoint](browser/README.md#export-a-checkpoint).
 
-## Evaluation
+## Benchmarks
 
-Smoke runs check training, checkpoint reload, and export. They do not establish
-release-model quality. Use the model cards for revision-specific results and
-[Evaluation and limitations](docs/evaluation.md) for metric interpretation and
-reproducible comparisons. Distributed training and optimizer-state resume are
-not implemented.
+**Results as of September 30, 2026 (2026-09-30).** For the latest results and
+per-benchmark comparisons, see the
+[📊 S1MB leaderboard](https://huggingface.co/spaces/hotchpotch/S1MB-leaderboard).
+The date identifies this snapshot, not the execution date of every evaluation.
+
+[System One Mosaic Benchmark (S1MB)](https://github.com/hotchpotch/S1MB) combines
+public NLP tasks, Open-Jev/Laya-derived tasks, and synthetic adaptation tasks.
+Its standard evaluation covers **137 benchmarks across 106 subsets**, with
+14,009 cases and 26,269 decisions: 59 Noul, 57 Choice, and 21 Score benchmarks.
+
+### Overall results
+
+The tables show **models with at most 500M total parameters, plus Jev 1.13**
+as a reference. Jev's parameter count is not disclosed in the snapshot; it is
+not included in the size limit. Rows are sorted by Task Avg within each table.
+All models below cover all 137 benchmarks in the overall evaluation.
+
+| Model | Total parameters | Task Avg | Noul | Choice | Score |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| [Jev 1.13](https://docs.typesafe.ai/models) | Not disclosed | 59.59 | 64.63 | 67.22 | 46.92 |
+| [bekko-system-one-v0-400m](https://huggingface.co/hotchpotch/bekko-system-one-v0-400m) | 395M | 50.60 | 51.24 | 61.32 | 39.25 |
+| [bekko-system-one-v0-68m](https://huggingface.co/hotchpotch/bekko-system-one-v0-68m) | 68M | 40.46 | 42.91 | 51.62 | 26.85 |
+| [bekko-system-one-v0-17m](https://huggingface.co/hotchpotch/bekko-system-one-v0-17m) | 17M | 27.57 | 31.43 | 35.57 | 15.70 |
+| [von](https://huggingface.co/wfzyx/von) | 395M | 16.21 | 20.15 | 23.99 | 4.48 |
+| [laya-typed-decisions](https://huggingface.co/convaiinnovations/laya-typed-decisions) | 421M | 15.00 | 20.06 | 18.93 | 5.99 |
+| [laya](https://huggingface.co/convaiinnovations/laya) | 421M | 13.36 | 20.19 | 16.31 | 3.58 |
+| [laya-multilingual](https://huggingface.co/convaiinnovations/laya-multilingual) | 322M | 9.28 | 14.01 | 13.03 | 0.79 |
+
+**These scores are not raw accuracy.** Each benchmark is scored relative to a
+simple baseline, such as always choosing the same option or returning a constant
+value. Scores are clipped to 0–100: 0 means at or below the baseline, and 100 is
+the reference ceiling. A score of 50 means halfway from baseline to that ceiling,
+not 50% correct. Scores are averaged within each task; **Task Avg weights Noul,
+Choice, and Score equally**. See the
+[scoring definitions](https://github.com/hotchpotch/S1MB/blob/main/evaluator/SCORING.md).
+
+Bekko 400M has the highest overall Task Avg among the models at or below 500M
+shown here. However, the training and evaluation manifests share 77 subset names,
+indicating exposure to related task families. This is not a count of duplicated
+test examples or proof that all rows were used in training. Interpret the overall
+result together with the adaptation results below.
+
+### Generalization: instruction and context adaptation
+
+S1MB includes six synthetic benchmarks: **Diverse** and **Contextual** variants
+for each of Noul, Choice, and Score, with 100 cases each (600 total). They test
+responses to different instructions, contexts, and decision criteria. These six
+are already included in the overall 137. The table below reports their scores
+separately, using the same model-size selection as above.
+
+| Model | Total parameters | Task Avg | General Noul | General Choice | General Score |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| [Jev 1.13](https://docs.typesafe.ai/models) | Not disclosed | 96.27 | 99.00 | 98.68 | 91.14 |
+| [bekko-system-one-v0-400m](https://huggingface.co/hotchpotch/bekko-system-one-v0-400m) | 395M | 54.48 | 52.00 | 80.30 | 31.14 |
+| [von](https://huggingface.co/wfzyx/von) | 395M | 43.19 | 41.00 | 65.89 | 22.67 |
+| [bekko-system-one-v0-68m](https://huggingface.co/hotchpotch/bekko-system-one-v0-68m) | 68M | 32.48 | 31.00 | 57.52 | 8.90 |
+| [laya-typed-decisions](https://huggingface.co/convaiinnovations/laya-typed-decisions) | 421M | 31.82 | 22.00 | 58.80 | 14.67 |
+| [laya](https://huggingface.co/convaiinnovations/laya) | 421M | 26.50 | 9.00 | 54.83 | 15.67 |
+| [bekko-system-one-v0-17m](https://huggingface.co/hotchpotch/bekko-system-one-v0-17m) | 17M | 18.96 | 15.00 | 39.11 | 2.76 |
+| [laya-multilingual](https://huggingface.co/convaiinnovations/laya-multilingual) | 322M | 14.47 | 6.00 | 36.67 | 0.75 |
+
+The gap is substantial: Bekko 400M's Task Avg trails Jev 1.13 on this adaptation
+view (54.48 versus 96.27). General Choice is its strongest adaptation score at
+80.30, while General Score reaches only 31.14. Version 0 can be useful for
+specific tasks, but its strong overall results do not establish broad
+generalization.
+
+The synthetic questions and intended answers were authored and self-reviewed
+by GPT-6-Astra, without independent human validation. They measure adaptation
+within this test design, not generalization to all unseen tasks or guaranteed
+separation from every model's training data.
+
+See the [full 23-model snapshot and methodology](docs/benchmarks.md) for both
+tables, training-exposure details, and provenance limits. These are supplied
+benchmark results, not measurements from the quickstart smoke run.
 
 ## 📚 Documentation
 
 - [Concepts](docs/concepts.md): task semantics and shared-prefix attention.
 - [Compatibility](docs/compatibility.md): environments, features, and export limits.
 - [Training quickstart](docs/quickstart-training.md): public Bekko data to prediction.
+- [Benchmark snapshot](docs/benchmarks.md): September 30, 2026 results and methodology.
 - [Evaluation and limitations](docs/evaluation.md): interpreting and reporting results.
 - [Troubleshooting](docs/troubleshooting.md): setup, data, memory, and export errors.
 - [Training reference](docs/training.md): data formats, sampling, truncation, and heads.

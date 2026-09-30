@@ -1,8 +1,10 @@
 # Evaluation and limitations
 
 Smoke runs establish that the pipeline executes. They do not establish accuracy,
-calibration, or generalization. This repository does not provide a consolidated
-release-model quality table; consult the model card for the exact revision used.
+calibration, or generalization. The [September 30, 2026 S1MB snapshot](benchmarks.md)
+reports release-model comparisons separately from smoke checks. For current
+results, see the [S1MB leaderboard](https://huggingface.co/spaces/hotchpotch/S1MB-leaderboard)
+and the model card for the exact revision used.
 
 ## Interpret predictions
 
