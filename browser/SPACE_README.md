@@ -6,7 +6,7 @@ colorTo: gray
 sdk: static
 app_file: index.html
 fullWidth: true
-short_description: Try small AI models for Yes/No, Choice, and Score in your browser.
+short_description: Ultra-small System One models in your browser
 license: mit
 models:
   - hotchpotch/bekko-system-one-v0-17m
@@ -23,9 +23,8 @@ pinned: false
 # bekko-system-one in your browser
 
 Try small System One models that answer Yes/No questions, choose between options,
-or assign scores, right in your browser. No installation, account, or API key is
-needed. Select an example and run it on this page. Models download to your
-browser and run on your device; your input text is not sent to an inference server.
+or assign scores. This static demo runs inference directly on your device with
+ONNX Runtime Web. Your input text is not sent to an inference server.
 
 ## Try it
 
@@ -65,7 +64,7 @@ intended for English input, and are not a replacement for Jev's broad
 generalization.
 
 This demo explores how small models can make useful, structured decisions
-in your browser—a starting point for more capable on-device AI.
+locally—a starting point for more capable on-device AI.
 
 ## Learn more
 
