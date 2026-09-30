@@ -317,7 +317,7 @@ function App() {
       <header className="hero">
         <div className="hero-copy">
           <div className="brand-wordmark">bekko-system-one</div>
-          <h1>Ultra-small System One Model.<br /><span>Decisions in your browser.</span></h1>
+          <h1>Ultra-small System One Models.<br /><span>Decisions in your browser.</span></h1>
           <p className="intro">
             Check a condition, choose an option, or score an answer. All on your device.
           </p>
