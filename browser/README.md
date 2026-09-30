@@ -32,7 +32,7 @@ using its access.
 
 Open the URL printed by Vite. The development server binds to localhost.
 Select a model and a decision type, then choose an example and click **Run
-decision**. The model loads automatically on the first run; **Load Model** lets
+model**. The model loads automatically on the first run; **Load model** lets
 you load it in advance.
 
 To build and preview the static app:
@@ -304,7 +304,9 @@ npm run export:space
 ```
 
 This rebuilds the app and recreates `export/space/` with the contents of `dist/`
-and the Space README. Local model files, training artifacts, and application
+and [SPACE_README.md](SPACE_README.md) as the Space root README. That file
+contains the Hugging Face metadata and visitor-facing description; this README
+is the development guide. Local model files, training artifacts, and application
 source files are not included.
 
 With the Hugging Face CLI (`hf`) installed and authenticated using `hf auth login`
