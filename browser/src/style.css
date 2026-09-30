@@ -991,3 +991,17 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 }
 
 .decision-activity .load-progress { width: 100%; margin-top: 16px; text-align: left; }
+
+.model-info { margin: 0 0 18px; padding: 0; border: 1px solid #dce4d6; border-radius: 10px; background: #eef3e9; color: #48604c; }
+.model-info > summary { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 9px; list-style: none; font-size: 13px; line-height: 1.5; }
+.model-info > summary::-webkit-details-marker { display: none; }
+.model-info > summary:hover { background: #e6eede; color: #28593f; }
+.model-info > summary > span { flex: 1; }
+.model-info[open] .model-info-chevron { transform: rotate(180deg); }
+.model-info-content { padding: 0 14px 14px; max-width: 860px; }
+.model-info-content h3 { margin: 14px 0 5px; font-size: 13px; color: #284733; }
+.model-info-content p { margin: 0; font-size: 13px; line-height: 1.7; }
+@media (max-width: 600px) {
+  .model-info > summary { padding: 11px 12px; font-size: 12px; gap: 7px; }
+  .model-info-content { padding: 0 12px 14px; }
+}
