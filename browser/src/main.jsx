@@ -69,7 +69,7 @@ function Result({ output }) {
       ? `${percent(result.probability_yes)} probability of Yes.`
       : decision.task === "choice"
         ? `${percent(result.probabilities[choice.id])} probability · ${choice.description}`
-        : `Average weighted by the model’s probabilities.`;
+        : `Each level contributes to the score according to its probability.`;
   const probabilityRows = candidates.map((c) => (
         <div
           key={c.id}
@@ -100,10 +100,10 @@ function Result({ output }) {
   return (
     <>
       <div className="result-kicker">
-        {decision.task === "score" ? "Estimated score" : decision.task === "choice" ? "Most likely option" : "Predicted answer"}
+        {decision.task === "score" ? "Probability-weighted score" : decision.task === "choice" ? "Most likely option" : "Predicted answer"}
         <HelpTooltip id="result-help" label="Help with this result">
           {decision.task === "score"
-            ? "The score is a probability-weighted average, not a selected level. The marker shows that average on your scoring scale. Expand the probabilities to see how the model distributes its predictions across levels."
+            ? "The score is the sum of each level multiplied by its probability. It can fall between levels and differ from the most likely level."
             : decision.task === "choice"
               ? "The heading shows the most likely option. Bars show probabilities across all options in your input order. Similar probabilities mean the model has no clear preference."
               : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
@@ -113,25 +113,15 @@ function Result({ output }) {
       {decision.task !== "score" && <p className="result-note">{note}</p>}
       {decision.task === "score" && (
         <>
-          <div className="score-ruler" role="img" aria-label={`Estimated score ${title} on a scale from ${min} to ${max}. Levels: ${candidates.map(c => c.value).join(", ")}`}>
-            <div className="score-position" aria-hidden="true">
-              {candidates.map(c => (
-                <span key={c.id} className={`score-tick ${c.value === min ? "first" : c.value === max ? "last" : ""}`}
-                  style={{ left: percent((c.value - min) / (max - min)) }}>
-                  <span className="score-tick-label">{c.value}</span>
-                </span>
-              ))}
-              <span className="score-marker" style={{ left: percent(result.normalized_score) }} />
-            </div>
+          <div className="track score-track" role="img" aria-label={`Probability-weighted score ${title} on a scale from ${min} to ${max}`}>
+            <div className="fill" style={{ width: percent(result.normalized_score) }} />
           </div>
+          <div className="scale-ends"><span>{min}</span><span>{max}</span></div>
           <p className="score-caption">{note}</p>
         </>
       )}
       {decision.task === "score" ? (
-        <details className="score-probabilities">
-          <summary>View score probabilities</summary>
-          {probabilityRows}
-        </details>
+        <div className="score-probabilities">{probabilityRows}</div>
       ) : probabilityRows}
       <p className="result-time">
         <Timer size={15} aria-hidden="true" />

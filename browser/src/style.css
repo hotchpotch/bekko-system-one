@@ -1015,16 +1015,10 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 .project-link .github-icon { flex-shrink: 0; }
 
 .score-maximum { font-size: .5em; font-weight: 500; color: #6b7b6b; }
-.score-ruler { padding: 12px 8px 30px; margin-top: 20px; }
-.score-position { position: relative; height: 8px; border-radius: 4px; background: #e7eee1; }
-.score-marker { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: #235d40; border: 3px solid #fff; box-shadow: 0 0 0 1px #235d40; transform: translate(-50%, -50%); }
-.score-probabilities { margin-top: 22px; padding-top: 16px; }
+.score-probabilities { margin-top: 24px; }
 .score-probabilities .probability-value { font-weight: 400; }
 
-.score-tick { position: absolute; top: 0; width: 1px; height: 15px; background: #91a78e; transform: translateX(-50%); }
-.score-tick-label { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: #617362; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.score-tick.first .score-tick-label { transform: none; left: 0; }
-.score-tick.last .score-tick-label { transform: translateX(-100%); }
-.score-position .score-marker { z-index: 1; }
 
 .score-caption { margin: 12px 0 0; color: #617362; font-size: 12px; line-height: 1.6; }
+
+.result-value + .score-track { margin-top: 20px; }
