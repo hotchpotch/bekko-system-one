@@ -1,12 +1,12 @@
 ---
-title: bekko-system-one in your browser
+title: Ultra-small System One Models in Your Browser
 emoji: 🐂
 colorFrom: green
 colorTo: gray
 sdk: static
 app_file: index.html
 fullWidth: true
-short_description: Ultra-small System One models in your browser
+short_description: Answer Yes/No questions, choose options, and score inputs.
 license: mit
 models:
   - hotchpotch/bekko-system-one-v0-17m
