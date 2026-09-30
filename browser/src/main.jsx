@@ -350,12 +350,20 @@ function App() {
           <ChevronDown size={16} className="model-info-chevron" aria-hidden="true" />
         </summary>
         <div className="model-info-content">
-          <h3>What works well</h3>
-          <p>Bekko v0 was trained on 100+ task-specific dataset subsets covering classification, selection, and scoring. It often works best when your question and context resemble those tasks. The examples here were deliberately selected to show cases it handles well; they are not a measure of general-purpose accuracy.</p>
-          <h3>Where it falls short</h3>
-          <p>Training across many datasets does not automatically teach a model to handle unfamiliar instructions or domains. Bekko v0 still struggles with that transfer, and even simple questions can produce confidently wrong answers. These models are intended for English input.</p>
-          <h3>Why explore it?</h3>
-          <p>Bekko v0 is not a replacement for Jev’s broad generalization. It demonstrates how small models can make useful, structured decisions directly in your browser—a starting point for exploring more capable on-device AI.</p>
+          <section className="model-info-section">
+            <h3>What works well</h3>
+            <p>Bekko v0 was trained on 100+ task-specific dataset subsets covering classification, selection, and scoring. It often works best when your question and context resemble those tasks.</p>
+            <p>The examples here were deliberately selected to show cases it handles well; they are not a measure of general-purpose accuracy.</p>
+          </section>
+          <section className="model-info-section">
+            <h3>Where it falls short</h3>
+            <p>Training across many datasets does not automatically teach a model to handle unfamiliar instructions or domains. Bekko v0 still struggles with that transfer, and even simple questions can produce confidently wrong answers.</p>
+            <p>These models are intended for English input.</p>
+          </section>
+          <section className="model-info-outlook">
+            <h3>Why explore it?</h3>
+            <p>Bekko v0 is not a replacement for Jev’s broad generalization. It demonstrates how small models can make useful, structured decisions directly in your browser—a starting point for exploring more capable on-device AI.</p>
+          </section>
         </div>
       </details>
       <section className="model-panel" aria-label="Model">

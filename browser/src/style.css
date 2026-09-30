@@ -992,16 +992,22 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 
 .decision-activity .load-progress { width: 100%; margin-top: 16px; text-align: left; }
 
-.model-info { margin: 0 0 18px; padding: 0; border: 1px solid #dce4d6; border-radius: 10px; background: #eef3e9; color: #48604c; }
-.model-info > summary { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 9px; list-style: none; font-size: 13px; line-height: 1.5; }
+.model-info { margin: 0 0 20px; padding: 0; border: 1px solid #dce4d6; border-radius: 12px; background: #f0f4ec; color: #48604c; }
+.model-info > summary { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 11px; list-style: none; font-size: 13px; line-height: 1.5; }
 .model-info > summary::-webkit-details-marker { display: none; }
 .model-info > summary:hover { background: #e6eede; color: #28593f; }
 .model-info > summary > span { flex: 1; }
 .model-info[open] .model-info-chevron { transform: rotate(180deg); }
-.model-info-content { padding: 0 14px 14px; max-width: 860px; }
-.model-info-content h3 { margin: 14px 0 5px; font-size: 13px; color: #284733; }
-.model-info-content p { margin: 0; font-size: 13px; line-height: 1.7; }
+.model-info-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; margin: 0 18px; padding: 20px 0 18px; border-top: 1px solid #dce4d6; }
+.model-info-content h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #284733; }
+.model-info-content p { margin: 0; font-size: 13px; line-height: 1.75; }
+.model-info-content p + p { margin-top: 10px; }
+.model-info-outlook { grid-column: 1 / -1; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 18px; padding-top: 16px; border-top: 1px solid #dce4d6; }
+.model-info-outlook h3 { margin: 2px 0 0; }
 @media (max-width: 600px) {
-  .model-info > summary { padding: 11px 12px; font-size: 12px; gap: 7px; }
-  .model-info-content { padding: 0 12px 14px; }
+  .model-info > summary { padding: 12px; font-size: 12px; gap: 8px; }
+  .model-info-content { grid-template-columns: minmax(0, 1fr); margin: 0 14px; padding: 16px 0; gap: 18px; }
+  .model-info-section + .model-info-section { padding-top: 16px; border-top: 1px solid #dce4d6; }
+  .model-info-outlook { display: block; }
+  .model-info-outlook h3 { margin: 0 0 8px; }
 }
