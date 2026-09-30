@@ -71,11 +71,19 @@ function Result({ output }) {
         ? `${percent(result.probabilities[choice.id])} probability · ${choice.description}`
         : `Each level contributes to the score according to its probability.`;
   const scoreCalculation = decision.task === "score" ? (<>
-            <span className="score-calculation-title">How this score is calculated</span>
-            <span className="score-calculation-formula">
-              {candidates.map(c => `${c.value < 0 ? `(${c.value})` : c.value} × ${percent(result.probabilities[c.id])}`).join(" + ")} ≈ {title}
-            </span>
-            <span>Each level is multiplied by its probability, then added together. Percentages shown are rounded; the score uses full precision.</span>
+    <span className="score-calculation-title">How this score is calculated</span>
+    <span className="score-calculation-formula">
+      <span className="calculation-labels"><span>Level</span><span>Probability</span><span>Contribution</span></span>
+      {candidates.map(c => (
+        <span className="calculation-row" key={c.id}>
+          <span>{c.value}</span><span className="calculation-operator">×</span>
+          <span>{percent(result.probabilities[c.id])}</span><span className="calculation-operator">≈</span>
+          <span>{(c.value * result.probabilities[c.id]).toFixed(3)}</span>
+        </span>
+      ))}
+      <span className="calculation-total"><span>Sum of contributions</span><strong>≈ {title}</strong></span>
+    </span>
+    <span className="calculation-footnote">Multiply each level by its probability, then add the contributions. Values shown are rounded.</span>
   </>) : null;
   const probabilityRows = candidates.map((c) => (
         <div
