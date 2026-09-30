@@ -19,6 +19,22 @@ For a first run without S1MB or W&B, use the
 [public Bekko training quickstart](quickstart-training.md). For your own data,
 see the [README](../README.md) and [training reference](training.md).
 
+## Recommended: use the release-v0 tag
+
+This project is under active development, and changes on `main` may temporarily
+break training or introduce incompatible behavior. For v0 training, we recommend
+checking out the `release-v0` tag before setting up the environment:
+
+```sh
+git fetch origin tag release-v0
+git checkout release-v0
+```
+
+This selects a fixed snapshot of the training code and dependency lockfile.
+If you plan to modify the code, create a branch from the tag with
+`git switch -c my-v0-training release-v0`. Model and dataset revisions are
+resolved separately; retain the run's resolved configuration to reproduce them.
+
 ## Setup
 
 Run commands from the repository root. Use a CUDA GPU and the pinned Linux /
