@@ -736,9 +736,6 @@ function App() {
         </aside>
       </div>
       <footer>
-        <p>
-          Embedding layer: INT8 · Transformer blocks and prediction heads: FP32
-        </p>
         <p>Inference runs in your browser. No inference server.</p>
 
       </footer>
