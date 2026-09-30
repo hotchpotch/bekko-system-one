@@ -139,7 +139,7 @@ export function FieldLabel({ id, label, help }) {
   );
 }
 
-export function HelpTooltip({ id, label, children }) {
+export function HelpTooltip({ id, label, children, trigger, className = "" }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef(null);
   const bubble = useRef(null);
@@ -166,7 +166,7 @@ export function HelpTooltip({ id, label, children }) {
   }, [open, children]);
   return (
     <span
-      className="help-tooltip"
+      className={`help-tooltip ${className}`}
       ref={anchor}
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse") setOpen(true);
@@ -182,13 +182,13 @@ export function HelpTooltip({ id, label, children }) {
     >
       <button
         type="button"
-        className="help-trigger"
+        className={trigger ? "score-help-trigger" : "help-trigger"}
         aria-label={label}
         aria-describedby={id}
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
       >
-        <Info size={16} strokeWidth={1.8} aria-hidden="true" />
+        {trigger ?? <Info size={16} strokeWidth={1.8} aria-hidden="true" />}
       </button>
       <span ref={bubble} id={id} role="tooltip" className="help-content" style={position} hidden={!open}>
         {children}

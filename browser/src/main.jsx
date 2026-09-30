@@ -70,6 +70,13 @@ function Result({ output }) {
       : decision.task === "choice"
         ? `${percent(result.probabilities[choice.id])} probability · ${choice.description}`
         : `Each level contributes to the score according to its probability.`;
+  const scoreCalculation = decision.task === "score" ? (<>
+            <span className="score-calculation-title">How this score is calculated</span>
+            <span className="score-calculation-formula">
+              {candidates.map(c => `${c.value < 0 ? `(${c.value})` : c.value} × ${percent(result.probabilities[c.id])}`).join(" + ")} ≈ {title}
+            </span>
+            <span>Each level is multiplied by its probability, then added together. Percentages shown are rounded; the score uses full precision.</span>
+  </>) : null;
   const probabilityRows = candidates.map((c) => (
         <div
           key={c.id}
@@ -109,13 +116,22 @@ function Result({ output }) {
               : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
         </HelpTooltip>
       </div>
-      <div className="result-value">{title}{decision.task === "score" && min === 0 && <span className="score-maximum"> / {max}</span>}</div>
+      <div className="result-value">
+        {decision.task === "score" ? (
+          <HelpTooltip id="score-calculation" label={`Score ${title}${min === 0 ? ` out of ${max}` : ""}. Show calculation`}
+            trigger={<>{title}{min === 0 && <span className="score-maximum"> / {max}</span>}</>}>
+            {scoreCalculation}
+          </HelpTooltip>
+        ) : title}
+      </div>
       {decision.task !== "score" && <p className="result-note">{note}</p>}
       {decision.task === "score" && (
         <>
-          <div className="track score-track" role="img" aria-label={`Probability-weighted score ${title} on a scale from ${min} to ${max}`}>
-            <div className="fill" style={{ width: percent(result.normalized_score) }} />
-          </div>
+          <HelpTooltip id="score-bar-calculation" className="score-bar-help"
+            label={`Score ${title} on a scale from ${min} to ${max}. Show calculation`}
+            trigger={<span className="track score-track"><span className="fill" style={{ width: percent(result.normalized_score) }} /></span>}>
+            {scoreCalculation}
+          </HelpTooltip>
           <div className="scale-ends"><span>{min}</span><span>{max}</span></div>
           <p className="score-caption">{note}</p>
         </>
