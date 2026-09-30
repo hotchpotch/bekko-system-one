@@ -110,7 +110,7 @@ function Result({ output }) {
         </HelpTooltip>
       </div>
       <div className="result-value">{title}{decision.task === "score" && min === 0 && <span className="score-maximum"> / {max}</span>}</div>
-      <p className="result-note">{note}</p>
+      {decision.task !== "score" && <p className="result-note">{note}</p>}
       {decision.task === "score" && (
         <>
           <div className="score-ruler" role="img" aria-label={`Estimated score ${title} on a scale from ${min} to ${max}. Levels: ${candidates.map(c => c.value).join(", ")}`}>
@@ -124,6 +124,7 @@ function Result({ output }) {
               <span className="score-marker" style={{ left: percent(result.normalized_score) }} />
             </div>
           </div>
+          <p className="score-caption">{note}</p>
         </>
       )}
       {decision.task === "score" ? (

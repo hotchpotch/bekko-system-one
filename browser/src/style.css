@@ -1026,3 +1026,5 @@ header.hero { display: block; padding: 0; margin-bottom: 18px; }
 .score-tick.first .score-tick-label { transform: none; left: 0; }
 .score-tick.last .score-tick-label { transform: translateX(-100%); }
 .score-position .score-marker { z-index: 1; }
+
+.score-caption { margin: 12px 0 0; color: #617362; font-size: 12px; line-height: 1.6; }
