@@ -50,14 +50,9 @@ function initialForm(task, id = defaults[task]) {
 function Result({ output }) {
   const { decision, result, inferenceMilliseconds, device = "cpu" } = output;
   const candidates = decision.criteria;
-  const highlighted = candidates.reduce((best, candidate) => {
-    if (decision.task === "score") {
-      return Math.abs(candidate.value - result.score) < Math.abs(best.value - result.score)
-        ? candidate : best;
-    }
-    return result.probabilities[candidate.id] > result.probabilities[best.id]
-      ? candidate : best;
-  });
+  const highlighted = decision.task === "score" ? null : candidates.reduce((best, candidate) =>
+    result.probabilities[candidate.id] > result.probabilities[best.id] ? candidate : best
+  );
   const min = Math.min(...candidates.map((c) => c.value)),
     max = Math.max(...candidates.map((c) => c.value));
   const choice = candidates.find((c) => c.id === result.selected_id);
@@ -74,39 +69,11 @@ function Result({ output }) {
       ? `${percent(result.probability_yes)} probability of Yes.`
       : decision.task === "choice"
         ? `${percent(result.probabilities[choice.id])} probability · ${choice.description}`
-        : `On a ${min}–${max} scale. A probability-weighted average of the levels below.`;
-  return (
-    <>
-      <div className="result-kicker">
-        {decision.task === "score" ? "Estimated score" : decision.task === "choice" ? "Most likely option" : "Predicted answer"}
-        <HelpTooltip id="result-help" label="Help with this result">
-          {decision.task === "score"
-            ? "The score averages your numeric levels using their probabilities. The highlighted level is closest to that score; ties use the first level in your input order. The bars show the probability for each level, so the longest bar may belong to a different level."
-            : decision.task === "choice"
-              ? "The heading shows the most likely option. Bars show probabilities across all options in your input order. Similar probabilities mean the model has no clear preference."
-              : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
-        </HelpTooltip>
-      </div>
-      <div className="result-value">{title}</div>
-      <p className="result-note">{note}</p>
-      {decision.task === "score" && (
-        <>
-          <div className="track score-track">
-            <div
-              className="fill"
-              style={{ width: percent(result.normalized_score) }}
-            />
-          </div>
-          <div className="scale-ends">
-            <span>{min}</span>
-            <span>{max}</span>
-          </div>
-        </>
-      )}
-      {candidates.map((c) => (
+        : `Average weighted by the model’s probabilities.`;
+  const probabilityRows = candidates.map((c) => (
         <div
           key={c.id}
-          className={`probability ${c.id === highlighted.id ? "winner" : ""}`}
+          className={`probability ${c.id === highlighted?.id ? "winner" : ""}`}
         >
           <div className="probability-title">
             <span className="probability-name">
@@ -129,7 +96,38 @@ function Result({ output }) {
             />
           </div>
         </div>
-      ))}
+      ));
+  return (
+    <>
+      <div className="result-kicker">
+        {decision.task === "score" ? "Estimated score" : decision.task === "choice" ? "Most likely option" : "Predicted answer"}
+        <HelpTooltip id="result-help" label="Help with this result">
+          {decision.task === "score"
+            ? "The score is a probability-weighted average, not a selected level. The marker shows that average on your scoring scale. Expand the probabilities to see how the model distributes its predictions across levels."
+            : decision.task === "choice"
+              ? "The heading shows the most likely option. Bars show probabilities across all options in your input order. Similar probabilities mean the model has no clear preference."
+              : "Yes is shown when its probability is at least 50%; otherwise No is shown. Values near 50% indicate an uncertain decision."}
+        </HelpTooltip>
+      </div>
+      <div className="result-value">{title}{decision.task === "score" && min === 0 && <span className="score-maximum"> / {max}</span>}</div>
+      <p className="result-note">{note}</p>
+      {decision.task === "score" && (
+        <>
+          <div className="score-position" role="img" aria-label={`Estimated score ${title} on a scale from ${min} to ${max}`}>
+            <span className="score-marker" style={{ left: percent(result.normalized_score) }} />
+          </div>
+          <div className="scale-ends">
+            <span>{min}</span>
+            <span>{max}</span>
+          </div>
+        </>
+      )}
+      {decision.task === "score" ? (
+        <details className="score-probabilities">
+          <summary>View score probabilities</summary>
+          {probabilityRows}
+        </details>
+      ) : probabilityRows}
       <p className="result-time">
         <Timer size={15} aria-hidden="true" />
         Inference: {inferenceMilliseconds.toFixed(1)} ms · {deviceLabel(device)}
