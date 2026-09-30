@@ -4,7 +4,7 @@
 
 [Models](#model-catalog) · [Quickstart](#quickstart) ·
 [Browser app](browser/README.md) · [Training guide](docs/quickstart-training.md) ·
-[Bekko dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
+[Training dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
 
 Bekko System One turns an instruction, context, and a set of candidates into a
 structured decision. Use it to route a support request, check whether evidence
@@ -12,7 +12,7 @@ supports a statement, rate an answer on your own scale, or rank retrieved
 passages. It provides training and inference with Sentence Transformers, plus
 standalone Python and ONNX exports for deployment.
 
-## Highlights
+## ✨ Highlights
 
 - **Explicit decisions:** Choice returns a candidate ID, Noul returns a yes/no
   probability, and Score returns a value on a scale you define.
@@ -146,9 +146,9 @@ input limits, optional FA2, and compilation.
 
 ## Training
 
-### Start with Bekko dataset
+### Start with the training dataset
 
-[Bekko dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
+The [training dataset](https://huggingface.co/datasets/hotchpotch/bekko-system-one-dataset-v0)
 is public at release. Start with the
 [training quickstart](docs/quickstart-training.md) to run the 17M smoke recipe
 with public training/validation data and local logging. It includes checkpoint
@@ -203,7 +203,7 @@ release-model quality. Use the model cards for revision-specific results and
 reproducible comparisons. Distributed training and optimizer-state resume are
 not implemented.
 
-## Documentation
+## 📚 Documentation
 
 - [Concepts](docs/concepts.md): task semantics and shared-prefix attention.
 - [Compatibility](docs/compatibility.md): environments, features, and export limits.
@@ -234,7 +234,7 @@ The code in this repository is licensed under the [MIT License](LICENSE).
 Model weights, datasets, and third-party dependencies retain their own licenses
 and access conditions; the code license does not grant rights to those assets.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 Bekko builds on [Sentence Transformers](https://github.com/huggingface/sentence-transformers)
 and [Transformers](https://github.com/huggingface/transformers). The v0 training
