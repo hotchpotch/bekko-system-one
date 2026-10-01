@@ -640,7 +640,7 @@ def ready_screen(args, device_name, counts, total, tokens, warmup_count=1):
                 f"Batch order: shuffled / seed {getattr(args, 'seed', 42)} / same order each pass"
             ),
         ),
-        title="BEKKO / SYSTEM ONE / DESICION — READY",
+        title="BEKKO / SYSTEM ONE / DECISION — READY",
         border_style="cyan",
     )
 
@@ -658,7 +658,7 @@ def display(args, device_name, counts, total, stats, example=None, status="LIVE 
     decision_rate = stats.get("rolling_decisions", done / inference)
     header = Panel(
         screen_text(
-            f"BEKKO / SYSTEM ONE / DESICION   |   bekko-system-one-v0-{args.model}   |   {device_name}"
+            f"BEKKO / SYSTEM ONE / DECISION   |   bekko-system-one-v0-{args.model}   |   {device_name}"
             f"   |   {status}",
             "bold cyan",
             single_line=True,
@@ -970,7 +970,7 @@ def main():
     if args.verbose_log:
         console.print(f"Diagnostic log: {args.verbose_log}")
     console.print(
-        "[bold cyan]BEKKO / SYSTEM ONE / DESICION — Initializing · Loading dependencies…[/]"
+        "[bold cyan]BEKKO / SYSTEM ONE / DECISION — Initializing · Loading dependencies…[/]"
     )
     import torch
     import torch._inductor.config as inductor_config
