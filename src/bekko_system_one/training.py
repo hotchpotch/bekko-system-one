@@ -71,9 +71,15 @@ def source_batches(
     if mode == "round_passes":
         from .sampling import round_batches, round_plan
 
-        plan = round_plan(counts, {} if dataset_samples is None else dataset_samples, epoch_fraction,
-                          batch_size=batch_size, rounds=rounds, dataset_passes=dataset_passes,
-                          dataset_cap=dataset_cap)
+        plan = round_plan(
+            counts,
+            {} if dataset_samples is None else dataset_samples,
+            epoch_fraction,
+            batch_size=batch_size,
+            rounds=rounds,
+            dataset_passes=dataset_passes,
+            dataset_cap=dataset_cap,
+        )
         for name, rows, _ in round_batches(plan, seed=seed):
             yield name, rows
     elif mode == "uniform":
@@ -161,7 +167,7 @@ def optimizer_for(model, learning_rate, head_learning_rate, weight_decay=0.01):
     )
 
 
-def train_step(model, groups, optimizer, controller):
+def train_step(model, groups, optimizer, controller, *, group_sources=None):
     """Accumulate microbatch loss sums divided by the actual logical batch size."""
     if not groups or any(g.target is None for g in groups):
         raise ValueError("Training requires target distributions for every group")
@@ -200,6 +206,13 @@ def train_step(model, groups, optimizer, controller):
     if device.type == "cuda":
         stats["peak_gpu_gib"] = torch.cuda.max_memory_allocated(device) / 2**30
     stats["usage_by_task"] = batch_usage(prepared)
+    if group_sources is not None:
+        per_source = {}
+        for source, group in zip(group_sources, prepared, strict=True):
+            per_source.setdefault(source, []).append(group)
+        stats["usage_by_source"] = {
+            source: batch_usage(items) for source, items in per_source.items()
+        }
     return stats
 
 
@@ -355,7 +368,8 @@ def _run(config, max_steps, tracker):
         from .release_mixing import load_additional_releases
 
         extra_sources, extra_validation, extra_audits, extra_roots = load_additional_releases(
-            data["additional_roots"], existing_names=set(sources) | set(validation),
+            data["additional_roots"],
+            existing_names=set(sources) | set(validation),
             prefix_layout=prefix_layout,
             validation_samples=evaluation.get("validation_samples", 5),
             validation_sampling=evaluation.get("validation_sampling", "uniform"),
@@ -393,6 +407,12 @@ def _run(config, max_steps, tracker):
         raise ValueError("sampling_alpha must be finite and nonnegative")
     if mode != "round_passes" and ("dataset_passes" in data or "rounds" in data):
         raise ValueError("dataset_passes and rounds require sampling: round_passes")
+    batch_grouping = data.get("batch_grouping", "source")
+    if batch_grouping not in {"source", "task"}:
+        raise ValueError("batch_grouping must be source or task")
+    if batch_grouping == "task" and mode != "round_passes":
+        raise ValueError("batch_grouping: task requires sampling: round_passes")
+    source_tasks = None
     sample_plan: dict[str, Any] | None = None
     selected = {}
     if mode == "round_passes":
@@ -403,11 +423,27 @@ def _run(config, max_steps, tracker):
         if any("passes" in spec for spec in data.get("sources", {}).values()):
             raise ValueError("round_passes uses dataset_passes, not sources.*.passes")
         sample_plan = round_plan(
-            counts, data.get("dataset_samples", {}), fraction, batch_size=batch_size,
-            rounds=data.get("rounds", 10), dataset_passes=data.get("dataset_passes"),
+            counts,
+            data.get("dataset_samples", {}),
+            fraction,
+            batch_size=batch_size,
+            rounds=data.get("rounds", 10),
+            dataset_passes=data.get("dataset_passes"),
             dataset_cap=data.get("dataset_cap"),
         )
         sample_plan["seed"] = config.get("seed", 42)
+        sample_plan["batch_grouping"] = batch_grouping
+        if batch_grouping == "task":
+            from .sampling import task_round_batches
+
+            if not all(hasattr(source, "decision_tasks") for source in sources.values()):
+                raise ValueError("Task grouping requires manifest-based decision releases")
+            source_tasks = {name: source.decision_tasks() for name, source in sources.items()}
+            sample_plan["source_grouped_steps"] = sample_plan["steps"]
+            sample_plan["steps"] = sum(
+                1
+                for _ in task_round_batches(sample_plan, source_tasks, seed=config.get("seed", 42))
+            )
     elif mode == "uniform":
         from .sampling import uniform_counts
 
@@ -575,14 +611,27 @@ def _run(config, max_steps, tracker):
     if mode == "round_passes":
         from .sampling import round_batches
 
-        training_batches = round_batches(sample_plan, seed=config.get("seed", 42))
+        if batch_grouping == "task":
+            from .sampling import task_round_batches
+
+            training_batches = task_round_batches(
+                sample_plan, source_tasks, seed=config.get("seed", 42)
+            )
+        else:
+            training_batches = round_batches(sample_plan, seed=config.get("seed", 42))
     else:
         training_batches = (
-            (name, rows, {}) for name, rows in source_batches(
-                counts, data.get("sources", {}), mode=mode, batch_size=batch_size,
-                seed=config.get("seed", 42), epoch_fraction=fraction,
+            (name, rows, {})
+            for name, rows in source_batches(
+                counts,
+                data.get("sources", {}),
+                mode=mode,
+                batch_size=batch_size,
+                seed=config.get("seed", 42),
+                epoch_fraction=fraction,
                 alpha=data.get("sampling_alpha", 0.5),
-                dataset_samples=data.get("dataset_samples"), dataset_cap=data.get("dataset_cap"),
+                dataset_samples=data.get("dataset_samples"),
+                dataset_cap=data.get("dataset_cap"),
             )
         )
     with (out / "history.jsonl").open("w") as history:
@@ -590,7 +639,31 @@ def _run(config, max_steps, tracker):
             step_started = time.monotonic()
             learning_rates = [group["lr"] for group in optimizer.param_groups]
             layout_stats = {}
-            if layout_sampler is not None:
+            if batch_grouping == "task":
+                layouts = (
+                    layout_sampler.sample(len(rows))
+                    if layout_sampler is not None
+                    else [prefix_layout] * len(rows)
+                )
+                grouped_refs = {}
+                for position, (source, row, pass_index) in enumerate(rows):
+                    grouped_refs.setdefault(source, []).append((position, row, layouts[position]))
+                groups = [None] * len(rows)
+                for source, refs in grouped_refs.items():
+                    rendered = sources[source].groups(
+                        [r[1] for r in refs], prefix_layouts=[r[2] for r in refs]
+                    )
+                    for ref, group in zip(refs, rendered, strict=True):
+                        groups[ref[0]] = group
+                schedule_stats["source_counts"] = dict(Counter(ref[0] for ref in rows))
+                if layout_sampler is not None:
+                    layout_stats = dict(
+                        prefix_layout_counts=dict(Counter(layouts)),
+                        prefix_layout_sha256=hashlib.sha256(
+                            json.dumps(layouts).encode()
+                        ).hexdigest(),
+                    )
+            elif layout_sampler is not None:
                 layouts = layout_sampler.sample(len(rows))
                 groups = sources[name].groups(rows, prefix_layouts=layouts)
                 layout_stats = dict(
@@ -600,8 +673,19 @@ def _run(config, max_steps, tracker):
             else:
                 groups = source_groups(sources[name], rows)
             trained_decisions += len(groups)
-            stats = train_step(model, groups, optimizer, controller)
-            usage.update(name, groups, stats["usage_by_task"])
+            if batch_grouping == "task":
+                stats = train_step(
+                    model, groups, optimizer, controller, group_sources=[ref[0] for ref in rows]
+                )
+            else:
+                stats = train_step(model, groups, optimizer, controller)
+            if batch_grouping == "task":
+                for source, refs in grouped_refs.items():
+                    source_batch = [groups[ref[0]] for ref in refs]
+                    source_usage = stats["usage_by_source"][source]
+                    usage.update(source, source_batch, source_usage)
+            else:
+                usage.update(name, groups, stats["usage_by_task"])
             scheduler.step()
             entry = dict(
                 step=step,

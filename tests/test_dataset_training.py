@@ -147,7 +147,9 @@ def test_native_balanced_sampling_is_deterministic():
 
 
 @pytest.mark.parametrize("layout", ["instruction_state", "state_instruction"])
-@pytest.mark.parametrize("state", [{"noul": "original", "context": "evidence"}, [1, 2], "text", None])
+@pytest.mark.parametrize(
+    "state", [{"noul": "original", "context": "evidence"}, [1, 2], "text", None]
+)
 def test_noul_definitions_share_training_and_inference_state(layout, state):
     from copy import deepcopy
 
@@ -166,7 +168,9 @@ def test_noul_definitions_share_training_and_inference_state(layout, state):
     assert inferred.target is None
     assert trained.target == [1.0, 0.0]
     assert (trained.query, trained.candidates, trained.query_parts) == (
-        inferred.query, inferred.candidates, inferred.query_parts
+        inferred.query,
+        inferred.candidates,
+        inferred.query_parts,
     )
     assert json.loads(inferred.query_parts.context) == {
         "noul": {"yes": "Supported by the evidence", "no": "Not supported, not necessarily false"},
@@ -206,3 +210,13 @@ def test_renew_multiple_noul_decisions_do_not_share_definitions():
     other = render_input_group(row["input"], 4)
     assert "Different negative meaning" not in first.query
     assert "Different negative meaning" in other.query
+
+
+def test_decision_task_indices_match_rendered_groups():
+    rows = [native_case("a"), native_case("b")]
+    dataset = Dataset.from_list(rows, features=dataset_features())
+    for selected in [dataset, dataset.select([1])]:
+        source = DecisionSource(selected)
+        assert source.decision_tasks().tolist() == [
+            group.task for group in source.groups(list(range(len(source))))
+        ]

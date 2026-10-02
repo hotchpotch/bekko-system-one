@@ -141,3 +141,56 @@ def test_source_batches_round_mode_keeps_the_pair_interface():
                 {"a": 4}, {}, mode="round_passes", batch_size=2, seed=42, dataset_samples=[]
             )
         )
+
+
+def test_task_rounds_mix_sources_preserve_passes_and_round_coverage():
+    from bekko_system_one.sampling import task_round_batches
+
+    plan = round_plan(
+        {"base": 103, "supplement": 16},
+        {},
+        1,
+        batch_size=8,
+        rounds=10,
+        dataset_passes={"supplement": 10},
+    )
+    tasks = {
+        "base": ["choice", "noul", "score"] * 34 + ["choice"],
+        "supplement": ["choice", "score"] * 8,
+    }
+    batches = list(task_round_batches(plan, tasks, seed=42))
+    assert batches == list(task_round_batches(plan, tasks, seed=42))
+    visits = Counter()
+    mixed = False
+    for task, refs, metadata in batches:
+        assert 0 < len(refs) <= 8
+        assert {tasks[name][row] for name, row, _ in refs} == {task}
+        visits.update((name, row, pass_index) for name, row, pass_index in refs)
+        mixed |= len({name for name, _, _ in refs}) > 1
+    assert mixed
+    assert visits == Counter(
+        [("base", row, 1) for row in range(103)]
+        + [("supplement", row, p) for p in range(1, 11) for row in range(16)]
+    )
+    for r in range(1, 11):
+        assert sorted(
+            row
+            for _, refs, meta in batches
+            if meta["round"] == r
+            for name, row, p in refs
+            if name == "supplement"
+        ) == list(range(16))
+
+
+def test_task_rounds_keep_cap_subsets_and_validate_indices():
+    from bekko_system_one.sampling import task_round_batches
+
+    plan = round_plan({"a": 29}, {"a": 11}, 1, batch_size=4, rounds=4, dataset_passes={"a": 3})
+    batches = list(task_round_batches(plan, {"a": ["noul"] * 29}, seed=3))
+    visits = Counter(row for _, refs, _ in batches for _, row, _ in refs)
+    assert len(visits) == 11
+    assert set(visits.values()) == {3}
+    with pytest.raises(ValueError, match="length"):
+        list(task_round_batches(plan, {"a": ["noul"]}, seed=3))
+    with pytest.raises(ValueError, match="Unsupported"):
+        list(task_round_batches(plan, {"a": ["unknown"] * 29}, seed=3))

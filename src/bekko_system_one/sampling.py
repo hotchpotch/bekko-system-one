@@ -131,3 +131,40 @@ def round_batches(plan, *, seed):
         for _, name in sorted(schedule):
             rows, pass_index = next(streams[name])
             yield name, rows, {"round": round_index, "source_pass": pass_index}
+
+
+def task_round_batches(plan, source_tasks, *, seed):
+    """Shuffle decisions across sources within each round, batching only by task.
+
+    Preserve the source sampler's caps, exact pass coverage and round allocation.
+    Each reference retains its source, row and pass for reproducible usage audits.
+    Only one round of references is buffered; text is rendered by the consumer.
+    """
+    import itertools
+    import random
+
+    if set(source_tasks) != set(plan["source_counts"]):
+        raise ValueError("Expected task indices for every source")
+    for name, tasks in source_tasks.items():
+        if len(tasks) != plan["source_counts"][name]:
+            raise ValueError(f"Task index length mismatch: {name}")
+        if set(tasks) - {"choice", "noul", "score"}:
+            raise ValueError(f"Unsupported decision task in source: {name}")
+    stream = round_batches(plan, seed=seed)
+    for round_index, batches in itertools.groupby(stream, key=lambda b: b[2]["round"]):
+        buckets = {}
+        for name, rows, metadata in batches:
+            for row in rows:
+                task = source_tasks[name][row]
+                buckets.setdefault(task, []).append((name, row, metadata["source_pass"]))
+        schedule = []
+        for task, refs in sorted(buckets.items()):
+            random.Random(f"{seed}:{task}:{round_index}:task-round-v1").shuffle(refs)
+            size = plan["batch_size"]
+            count = math.ceil(len(refs) / size)
+            phase = random.Random(f"{seed}:{task}:{round_index}:task-schedule-v1").random()
+            for index in range(count):
+                schedule.append(((index + phase) / count, task, index))
+        for _, task, index in sorted(schedule):
+            refs = buckets[task][index * size : (index + 1) * size]
+            yield task, refs, {"round": round_index, "batch_task": task}

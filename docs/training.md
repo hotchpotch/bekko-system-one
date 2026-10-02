@@ -579,3 +579,17 @@ experimental capacity increase, not a guarantee of better accuracy or calibratio
 
 The browser ONNX exporter currently rejects contextual Choice checkpoints; its
 portable graph supports independent heads only.
+
+### Mixing release sources by decision task
+
+With `data.sampling: round_passes`, set `data.batch_grouping: task` to shuffle
+all source decisions within each round and form batches containing only one
+of `noul`, `choice`, or `score`. Document ranking uses the Score head and shares
+the Score pool. The default grouping remains `source`. This option requires
+manifest-based releases. Caps, fixed selected pools, per-source pass counts and
+round allocations are preserved; final partial batches are retained per task
+and round. A repeated supplemental source can use `dataset_passes: 10` over ten
+rounds to mix a complete pass into each round when its batch count divides evenly.
+The sampling plan records the actual task-grouped update budget, and history
+records task, round, source counts and a hash of source/row/pass references.
+Usage totals retain the original source names.

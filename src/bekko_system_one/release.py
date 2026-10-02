@@ -154,6 +154,25 @@ class DecisionSource:
     def __len__(self):
         return int(self.ends[-1]) if len(self.ends) else 0
 
+    def decision_tasks(self):
+        """Read task indices directly from Arrow without rendering input or targets."""
+        tasks = []
+        for batch in self.dataset.data.to_batches():
+            if self.structured_format:
+                decisions = batch.column(batch.schema.get_field_index("input")).field("decisions")
+            else:
+                decisions = batch.column(batch.schema.get_field_index("decisions"))
+            values = decisions.flatten()
+            types = values.field("type").to_pylist()
+            if self.structured_format:
+                kinds = values.field("kind").to_pylist()
+                types = [
+                    "score" if kind == "ranking" else typ
+                    for typ, kind in zip(types, kinds, strict=True)
+                ]
+            tasks.extend(types)
+        return np.asarray(tasks, dtype="U6")
+
     def groups(self, indices, *, prefix_layouts=None):
         if prefix_layouts is None:
             prefix_layouts = [self.prefix_layout] * len(indices)
@@ -214,6 +233,7 @@ def load_release(
 
         def load_split(name, split):
             return load_from_disk(str(root / name / split))
+
     if exclude_datasets is None:
         exclude_datasets = []
     if not isinstance(exclude_datasets, list) or any(
@@ -317,7 +337,8 @@ def macro_metrics(results):
         counts, datasets = {}, {}
         for key in keys:
             eligible = [
-                v for v in values
+                v
+                for v in values
                 if v.get(key) is not None and v.get("metric_counts", {}).get(key, v["groups"]) > 0
             ]
             summary[key] = sum(v[key] for v in eligible) / len(eligible) if eligible else None
