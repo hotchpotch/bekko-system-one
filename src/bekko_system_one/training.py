@@ -11,6 +11,7 @@ import random
 import time
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
@@ -58,6 +59,8 @@ def source_batches(
     alpha=0.5,
     dataset_samples=None,
     dataset_cap=None,
+    dataset_passes=None,
+    rounds=10,
 ):
     """Yield source-homogeneous logical batches with reproducible row indices."""
     if batch_size < 1 or not math.isfinite(epoch_fraction) or epoch_fraction <= 0:
@@ -65,7 +68,15 @@ def source_batches(
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
     rng = random.Random(seed)
-    if mode == "uniform":
+    if mode == "round_passes":
+        from .sampling import round_batches, round_plan
+
+        plan = round_plan(counts, {} if dataset_samples is None else dataset_samples, epoch_fraction,
+                          batch_size=batch_size, rounds=rounds, dataset_passes=dataset_passes,
+                          dataset_cap=dataset_cap)
+        for name, rows, _ in round_batches(plan, seed=seed):
+            yield name, rows
+    elif mode == "uniform":
         from .sampling import uniform_counts
 
         bases, selected = uniform_counts(
@@ -135,7 +146,7 @@ def source_batches(
             offsets[name] += batch_size
             yield name, pools[name][start : start + batch_size].tolist()
     else:
-        raise ValueError("sampling must be uniform, source_passes or weighted")
+        raise ValueError("sampling must be uniform, source_passes, round_passes or weighted")
 
 
 def optimizer_for(model, learning_rate, head_learning_rate, weight_decay=0.01):
@@ -261,6 +272,8 @@ def _run(config, max_steps, tracker):
     batch_size = train.get("batch_size", 512)
     if batch_size < 1 or (max_steps is not None and max_steps < 1):
         raise ValueError("batch_size and max_steps must be positive")
+    if "additional_roots" in data and "root" not in data:
+        raise ValueError("additional_roots requires data.root")
     if "root" in data and "sources" in data:
         raise ValueError("Choose data.root or data.sources, not both")
     from .layout_sampling import LAYOUTS, LayoutSampler
@@ -338,6 +351,22 @@ def _run(config, max_steps, tracker):
         validation = (
             load_sources(data["validation_sources"]) if data.get("validation_sources") else {}
         )
+    if "additional_roots" in data:
+        from .release_mixing import load_additional_releases
+
+        extra_sources, extra_validation, extra_audits, extra_roots = load_additional_releases(
+            data["additional_roots"], existing_names=set(sources) | set(validation),
+            prefix_layout=prefix_layout,
+            validation_samples=evaluation.get("validation_samples", 5),
+            validation_sampling=evaluation.get("validation_sampling", "uniform"),
+            validation_seed=evaluation.get("validation_seed", config.get("seed", 42)),
+            hub_pins=hub_pins,
+        )
+        sources.update(extra_sources)
+        validation.update(extra_validation)
+        resolved_config["data"]["additional_roots"] = extra_roots
+        for role in ("train", "validation"):
+            audits[role]["additional_releases"] = extra_audits[role]
     test = {}
     if evaluation.get("test_root"):
         test, audits["test"] = load_release(
@@ -357,14 +386,29 @@ def _run(config, max_steps, tracker):
     fraction = data.get("epoch_fraction", 1.0)
     if not math.isfinite(fraction) or fraction <= 0:
         raise ValueError("epoch_fraction must be finite and positive")
-    if mode not in {"weighted", "source_passes", "uniform"}:
-        raise ValueError("sampling must be uniform, source_passes or weighted")
+    if mode not in {"weighted", "source_passes", "round_passes", "uniform"}:
+        raise ValueError("sampling must be uniform, source_passes, round_passes or weighted")
     alpha = data.get("sampling_alpha", 0.5)
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
-    sample_plan = None
+    if mode != "round_passes" and ("dataset_passes" in data or "rounds" in data):
+        raise ValueError("dataset_passes and rounds require sampling: round_passes")
+    sample_plan: dict[str, Any] | None = None
     selected = {}
-    if mode == "uniform":
+    if mode == "round_passes":
+        from .sampling import round_plan
+
+        if "sampling_alpha" in data:
+            raise ValueError("round_passes does not use sampling_alpha; remove it")
+        if any("passes" in spec for spec in data.get("sources", {}).values()):
+            raise ValueError("round_passes uses dataset_passes, not sources.*.passes")
+        sample_plan = round_plan(
+            counts, data.get("dataset_samples", {}), fraction, batch_size=batch_size,
+            rounds=data.get("rounds", 10), dataset_passes=data.get("dataset_passes"),
+            dataset_cap=data.get("dataset_cap"),
+        )
+        sample_plan["seed"] = config.get("seed", 42)
+    elif mode == "uniform":
         from .sampling import uniform_counts
 
         if "sampling_alpha" in data:
@@ -415,7 +459,14 @@ def _run(config, max_steps, tracker):
         assert sample_plan is not None
         sample_plan["steps"] = steps
         sample_plan["sampled_decisions"] = steps * batch_size
+    if mode == "round_passes":
+        assert sample_plan is not None
+        steps = sample_plan["steps"]
     steps = min(steps, max_steps) if max_steps is not None else steps
+    if mode == "round_passes":
+        assert sample_plan is not None
+        sample_plan["run_steps"] = steps
+        sample_plan["budget_truncated"] = steps < sample_plan["steps"]
     if steps < 1:
         raise ValueError("Training budget does not contain a complete batch")
     out = Path(train["output_dir"])
@@ -521,21 +572,21 @@ def _run(config, max_steps, tracker):
     started = time.monotonic()
     trained_decisions = 0
     usage = TrainingUsage()
-    with (out / "history.jsonl").open("w") as history:
-        for step, (name, rows) in enumerate(
-            source_batches(
-                counts,
-                data.get("sources", {}),
-                mode=mode,
-                batch_size=batch_size,
-                seed=config.get("seed", 42),
-                epoch_fraction=fraction,
+    if mode == "round_passes":
+        from .sampling import round_batches
+
+        training_batches = round_batches(sample_plan, seed=config.get("seed", 42))
+    else:
+        training_batches = (
+            (name, rows, {}) for name, rows in source_batches(
+                counts, data.get("sources", {}), mode=mode, batch_size=batch_size,
+                seed=config.get("seed", 42), epoch_fraction=fraction,
                 alpha=data.get("sampling_alpha", 0.5),
-                dataset_samples=data.get("dataset_samples"),
-                dataset_cap=data.get("dataset_cap"),
-            ),
-            1,
-        ):
+                dataset_samples=data.get("dataset_samples"), dataset_cap=data.get("dataset_cap"),
+            )
+        )
+    with (out / "history.jsonl").open("w") as history:
+        for step, (name, rows, schedule_stats) in enumerate(training_batches, 1):
             step_started = time.monotonic()
             learning_rates = [group["lr"] for group in optimizer.param_groups]
             layout_stats = {}
@@ -562,6 +613,7 @@ def _run(config, max_steps, tracker):
                 learning_rates=learning_rates,
                 **stats,
                 **layout_stats,
+                **schedule_stats,
             )
             evaluation_step = step
             tracker.training(entry, trained_decisions, final=step == steps)

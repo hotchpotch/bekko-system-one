@@ -257,6 +257,64 @@ Metrics include per-dataset/task cross-entropy, accuracy (ties in the target cou
 as correct), Brier score and target mass at the predicted candidate. Summary files
 weight datasets equally within each task and tasks equally for mean cross-entropy.
 
+### Round-distributed source passes
+
+Use `round_passes` to guarantee per-source coverage while spreading repeated
+sources over the entire run. For example, visit a capped primary release once
+and a smaller supplemental source ten times:
+
+```yaml
+data:
+  root: /path/to/primary-release
+  additional_roots:
+    supplement: /path/to/supplemental-release
+  sampling: round_passes
+  rounds: 10
+  epoch_fraction: 1.0
+  dataset_cap: 200000
+  dataset_samples:
+    supplement/new_category: 4096
+  dataset_passes:
+    supplement/new_category: 10
+  prefix_layout_weights:
+    instruction_state: 1
+    state_instruction: 1
+training:
+  batch_size: 512
+```
+
+Additional releases may be local release directories or Hub references using the
+same mapping as `data.root`. Their dataset names become `<namespace>/<dataset>`;
+primary names remain unchanged. Namespaces use letters, digits, underscores or
+hyphens. Native inputs, soft targets, explicit splits and per-release audits are
+preserved. Validation uses each release's validation splits and the existing
+`evaluation.validation_*` settings; test is loaded only from an explicitly
+configured `evaluation.test_root`. Primary dataset exclusion lists apply only to
+`data.root`. Name collisions and supplemental releases without training data are
+errors. `additional_roots` requires `data.root`.
+
+Caps and percentages select one fixed pool in decision units, just as for
+`uniform`. Unlisted pass counts default to one. Each pass visits every selected
+decision exactly once, in a new seeded order, retaining tail batches. No batch
+crosses a source's pass boundary. Pass counts are positive integers and do not
+use `sampling_alpha` or per-source `sources.*.passes` settings.
+
+Each source's batches are divided across rounds with cumulative integer quotas.
+Within a round they occupy evenly spaced slots, with a seeded phase controlling
+the order between sources. A 4,096-decision pool with ten passes, ten rounds and
+batch size 512 therefore contributes eight batches per round, exactly 800 total
+batches across ten such sources. Primary pools with one pass are partitioned
+across rounds without repetition. Small sources may have empty rounds; repeated
+sources need not have the same pass count as the number of rounds.
+
+`sampling_plan.json` records selected pool sizes, pass counts, per-round batch
+counts, total decisions and scheduler steps. History entries include `round`
+and `source_pass`; row-index hashes retain batch identity. LR scheduling uses
+the combined update budget. `--train-percent`/`--smoke` shrink the selected pools
+before repetition. `max_steps` truncates this schedule and sets
+`budget_truncated` in the plan; exact complete coverage applies to an untruncated
+run. Validation and test are not repeated or multiplied.
+
 ### Per-dataset sampling without replacement
 
 Use `data.sampling: uniform` to visit a configured fraction of each source,
