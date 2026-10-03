@@ -60,6 +60,7 @@ def source_batches(
     dataset_samples=None,
     dataset_cap=None,
     dataset_passes=None,
+    dataset_multipliers=None,
     rounds=10,
 ):
     """Yield source-homogeneous logical batches with reproducible row indices."""
@@ -67,8 +68,25 @@ def source_batches(
         raise ValueError("batch_size and epoch_fraction must be positive")
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
+    if dataset_multipliers is not None and mode != "virtual_weighted":
+        raise ValueError("dataset_multipliers requires sampling: virtual_weighted")
     rng = random.Random(seed)
-    if mode == "round_passes":
+    if mode == "virtual_weighted":
+        from .sampling import virtual_weighted_batches, virtual_weighted_plan
+
+        plan = virtual_weighted_plan(
+            counts,
+            {} if dataset_samples is None else dataset_samples,
+            epoch_fraction,
+            batch_size=batch_size,
+            alpha=alpha,
+            dataset_cap=dataset_cap,
+            dataset_multipliers=dataset_multipliers,
+            rounds=rounds,
+        )
+        for name, rows, _ in virtual_weighted_batches(plan, seed=seed):
+            yield name, rows
+    elif mode == "round_passes":
         from .sampling import round_batches, round_plan
 
         plan = round_plan(
@@ -152,7 +170,9 @@ def source_batches(
             offsets[name] += batch_size
             yield name, pools[name][start : start + batch_size].tolist()
     else:
-        raise ValueError("sampling must be uniform, source_passes, round_passes or weighted")
+        raise ValueError(
+            "sampling must be uniform, source_passes, round_passes, virtual_weighted or weighted"
+        )
 
 
 def optimizer_for(model, learning_rate, head_learning_rate, weight_decay=0.01):
@@ -400,22 +420,55 @@ def _run(config, max_steps, tracker):
     fraction = data.get("epoch_fraction", 1.0)
     if not math.isfinite(fraction) or fraction <= 0:
         raise ValueError("epoch_fraction must be finite and positive")
-    if mode not in {"weighted", "source_passes", "round_passes", "uniform"}:
-        raise ValueError("sampling must be uniform, source_passes, round_passes or weighted")
+    if mode not in {"weighted", "source_passes", "round_passes", "uniform", "virtual_weighted"}:
+        raise ValueError(
+            "sampling must be uniform, source_passes, round_passes, virtual_weighted or weighted"
+        )
     alpha = data.get("sampling_alpha", 0.5)
     if not math.isfinite(alpha) or alpha < 0:
         raise ValueError("sampling_alpha must be finite and nonnegative")
-    if mode != "round_passes" and ("dataset_passes" in data or "rounds" in data):
+    if (mode != "round_passes" and "dataset_passes" in data) or (
+        mode not in {"round_passes", "virtual_weighted"} and "rounds" in data
+    ):
         raise ValueError("dataset_passes and rounds require sampling: round_passes")
+    if "dataset_multipliers" in data and mode != "virtual_weighted":
+        raise ValueError("dataset_multipliers requires sampling: virtual_weighted")
     batch_grouping = data.get("batch_grouping", "source")
     if batch_grouping not in {"source", "task"}:
         raise ValueError("batch_grouping must be source or task")
-    if batch_grouping == "task" and mode != "round_passes":
-        raise ValueError("batch_grouping: task requires sampling: round_passes")
+    if batch_grouping == "task" and mode not in {"round_passes", "virtual_weighted"}:
+        raise ValueError("batch_grouping: task requires round_passes or virtual_weighted")
     source_tasks = None
     sample_plan: dict[str, Any] | None = None
     selected = {}
-    if mode == "round_passes":
+    if mode == "virtual_weighted":
+        from .sampling import task_virtual_weighted_batches, virtual_weighted_plan
+
+        if any("passes" in spec for spec in data.get("sources", {}).values()):
+            raise ValueError("virtual_weighted uses dataset_multipliers, not sources.*.passes")
+        sample_plan = virtual_weighted_plan(
+            counts,
+            data.get("dataset_samples", {}),
+            fraction,
+            batch_size=batch_size,
+            alpha=alpha,
+            dataset_cap=data.get("dataset_cap"),
+            dataset_multipliers=data.get("dataset_multipliers"),
+            rounds=data.get("rounds", 10),
+        )
+        sample_plan["seed"] = config.get("seed", 42)
+        sample_plan["batch_grouping"] = batch_grouping
+        if batch_grouping == "task":
+            if not all(hasattr(source, "decision_tasks") for source in sources.values()):
+                raise ValueError("Task grouping requires manifest-based decision releases")
+            source_tasks = {name: source.decision_tasks() for name, source in sources.items()}
+            sample_plan["steps"] = sum(
+                1
+                for _ in task_virtual_weighted_batches(
+                    sample_plan, source_tasks, seed=config.get("seed", 42)
+                )
+            )
+    elif mode == "round_passes":
         from .sampling import round_plan
 
         if "sampling_alpha" in data:
@@ -495,11 +548,11 @@ def _run(config, max_steps, tracker):
         assert sample_plan is not None
         sample_plan["steps"] = steps
         sample_plan["sampled_decisions"] = steps * batch_size
-    if mode == "round_passes":
+    if mode in {"round_passes", "virtual_weighted"}:
         assert sample_plan is not None
         steps = sample_plan["steps"]
     steps = min(steps, max_steps) if max_steps is not None else steps
-    if mode == "round_passes":
+    if mode in {"round_passes", "virtual_weighted"}:
         assert sample_plan is not None
         sample_plan["run_steps"] = steps
         sample_plan["budget_truncated"] = steps < sample_plan["steps"]
@@ -608,7 +661,15 @@ def _run(config, max_steps, tracker):
     started = time.monotonic()
     trained_decisions = 0
     usage = TrainingUsage()
-    if mode == "round_passes":
+    if mode == "virtual_weighted":
+        from .sampling import task_virtual_weighted_batches, virtual_weighted_batches
+
+        training_batches = (
+            task_virtual_weighted_batches(sample_plan, source_tasks, seed=config.get("seed", 42))
+            if batch_grouping == "task"
+            else virtual_weighted_batches(sample_plan, seed=config.get("seed", 42))
+        )
+    elif mode == "round_passes":
         from .sampling import round_batches
 
         if batch_grouping == "task":

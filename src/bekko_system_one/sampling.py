@@ -133,10 +133,10 @@ def round_batches(plan, *, seed):
             yield name, rows, {"round": round_index, "source_pass": pass_index}
 
 
-def task_round_batches(plan, source_tasks, *, seed):
+def task_grouped_batches(plan, source_tasks, stream, *, seed):
     """Shuffle decisions across sources within each round, batching only by task.
 
-    Preserve the source sampler's caps, exact pass coverage and round allocation.
+    Preserve the source sampler's selected references and round allocation.
     Each reference retains its source, row and pass for reproducible usage audits.
     Only one round of references is buffered; text is rendered by the consumer.
     """
@@ -150,13 +150,14 @@ def task_round_batches(plan, source_tasks, *, seed):
             raise ValueError(f"Task index length mismatch: {name}")
         if set(tasks) - {"choice", "noul", "score"}:
             raise ValueError(f"Unsupported decision task in source: {name}")
-    stream = round_batches(plan, seed=seed)
     for round_index, batches in itertools.groupby(stream, key=lambda b: b[2]["round"]):
         buckets = {}
         for name, rows, metadata in batches:
             for row in rows:
                 task = source_tasks[name][row]
-                buckets.setdefault(task, []).append((name, row, metadata["source_pass"]))
+                buckets.setdefault(task, []).append(
+                    (name, row, metadata.get("source_pass", metadata.get("draw_batch")))
+                )
         schedule = []
         for task, refs in sorted(buckets.items()):
             random.Random(f"{seed}:{task}:{round_index}:task-round-v1").shuffle(refs)
@@ -168,3 +169,93 @@ def task_round_batches(plan, source_tasks, *, seed):
         for _, task, index in sorted(schedule):
             refs = buckets[task][index * size : (index + 1) * size]
             yield task, refs, {"round": round_index, "batch_task": task}
+
+
+def task_round_batches(plan, source_tasks, *, seed):
+    """Mix exact source-pass decisions into homogeneous task batches per round."""
+    yield from task_grouped_batches(plan, source_tasks, round_batches(plan, seed=seed), seed=seed)
+
+
+def virtual_weighted_plan(
+    counts,
+    dataset_samples,
+    epoch_fraction,
+    *,
+    batch_size,
+    alpha=0.5,
+    dataset_cap=None,
+    dataset_multipliers=None,
+    rounds=10,
+):
+    """Budget replacement sampling by virtual source volume, preserving capped pools."""
+    if (
+        isinstance(alpha, bool)
+        or not isinstance(alpha, (int, float))
+        or not math.isfinite(alpha)
+        or alpha < 0
+    ):
+        raise ValueError("sampling_alpha must be finite and nonnegative")
+    for name, value in [("batch_size", batch_size), ("rounds", rounds)]:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+    multipliers = {} if dataset_multipliers is None else dataset_multipliers
+    if not isinstance(multipliers, dict):
+        raise ValueError("dataset_multipliers must be a mapping")
+    if set(multipliers) - set(counts):
+        raise ValueError("Unknown or excluded dataset_multipliers names")
+    if any(isinstance(v, bool) or not isinstance(v, int) or v < 1 for v in multipliers.values()):
+        raise ValueError("dataset_multipliers values must be positive integers")
+    bases, _ = uniform_counts(counts, dataset_samples, epoch_fraction, dataset_cap=dataset_cap)
+    virtual = {n: c * multipliers.get(n, 1) for n, c in bases.items()}
+    weights = {n: c**alpha for n, c in virtual.items() if c}
+    if not all(math.isfinite(w) for w in weights.values()):
+        raise ValueError("sampling weights must be finite")
+    budget = int(sum(virtual.values()) * Decimal(str(epoch_fraction)))
+    return dict(
+        mode="virtual_weighted",
+        unit="decision",
+        source_counts=dict(counts),
+        base_counts=bases,
+        virtual_counts=virtual,
+        dataset_multipliers=dict(multipliers),
+        sampling_weights=weights,
+        sampling_alpha=alpha,
+        epoch_fraction=epoch_fraction,
+        decision_budget=budget,
+        sampled_decisions=budget // batch_size * batch_size,
+        steps=budget // batch_size,
+        source_grouped_steps=budget // batch_size,
+        batch_size=batch_size,
+        rounds=rounds,
+        dataset_cap=dataset_cap,
+        replacement=True,
+    )
+
+
+def virtual_weighted_batches(plan, *, seed):
+    """Yield source batches from identical deterministic replacement draws for either grouping."""
+    import random
+
+    names = sorted(plan["sampling_weights"])
+    if not names:
+        return
+    weights = [plan["sampling_weights"][n] for n in names]
+    source_rng = random.Random(f"{seed}:virtual-source-v1")
+    pools, row_rngs = {}, {}
+    steps = plan["source_grouped_steps"]
+    for index in range(steps):
+        name = source_rng.choices(names, weights=weights, k=1)[0]
+        if name not in pools:
+            pools[name] = random.Random(f"{seed}:{name}:uniform-v1").sample(
+                range(plan["source_counts"][name]), plan["base_counts"][name]
+            )
+            row_rngs[name] = random.Random(f"{seed}:{name}:virtual-row-v1")
+        rows = row_rngs[name].choices(pools[name], k=plan["batch_size"])
+        yield name, rows, {"round": index * plan["rounds"] // steps + 1, "draw_batch": index}
+
+
+def task_virtual_weighted_batches(plan, source_tasks, *, seed):
+    """Rebatch the same weighted references by task, with cross-source round shuffling."""
+    yield from task_grouped_batches(
+        plan, source_tasks, virtual_weighted_batches(plan, seed=seed), seed=seed
+    )

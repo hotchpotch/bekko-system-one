@@ -593,3 +593,21 @@ rounds to mix a complete pass into each round when its batch count divides evenl
 The sampling plan records the actual task-grouped update budget, and history
 records task, round, source counts and a hash of source/row/pass references.
 Usage totals retain the original source names.
+
+### Weighted virtual source volume
+
+`data.sampling: virtual_weighted` uses replacement draws from each fixed capped
+source pool. `dataset_multipliers` maps source names to positive integer virtual
+multiplicities, without copying rows. Source weights are
+`(capped_decisions * multiplier) ** sampling_alpha`; the decision budget is
+`floor(sum(capped_decisions * multiplier) * epoch_fraction)`, rounded down to
+whole source batches. A multiplier of ten with alpha 0.5 changes a source's weight
+by the square root of ten. It does not guarantee ten visits per example.
+Small pools remain eligible and may repeat within a batch.
+
+Both `batch_grouping: source` (default) and `batch_grouping: task` consume the same
+seeded source/row draws. Task grouping shuffles and rebatches these decisions
+within `rounds` windows, keeping per-task tails and recording the resulting update
+budget. It can have slightly more updates than source grouping, while training
+on exactly the same decision multiset. Fractions control the draw budget rather
+than limiting the unique pool. Use `round_passes` for exact per-example coverage.
