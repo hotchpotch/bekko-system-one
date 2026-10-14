@@ -293,6 +293,7 @@ benchmark results, not measurements from the quickstart smoke run.
 - [Training quickstart](docs/quickstart-training.md): public Bekko data to prediction.
 - [Benchmark snapshot](docs/benchmarks.md): September 30, 2026 results and methodology.
 - [Evaluation and limitations](docs/evaluation.md): interpreting and reporting results.
+- [Decision Index evaluation](docs/decision-index.md): pinned adapter, suite reconstruction and capacity checks.
 - [Troubleshooting](docs/troubleshooting.md): setup, data, memory, and export errors.
 - [Training reference](docs/training.md): data formats, sampling, truncation, and heads.
 - [Candidate encoder architectures](docs/architectures.md): shared-prefix, cross-encoder and listwise models.
