@@ -11,8 +11,8 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
 from .inference_v0 import BekkoInference, BekkoSentenceTransformer
-from .modules import DecisionHeads, SharedPrefix
 from .modeling_bekko import write_automodel_files
+from .modules import DecisionHeads, SharedPrefix
 
 
 def runtime_source():
