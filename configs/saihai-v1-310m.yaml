@@ -1,0 +1,57 @@
+# The alpha=.5 v0 subset is already materialized in this pinned dataset.
+# Train its complete mixed pool; do not apply another 10% fraction or alpha sampler.
+seed: 42
+model:
+  model_name_or_path: cl-nagoya/ruri-v3-reranker-310m
+  revision: bb46934ee9ed09f850b9fcff17501b3ef7ddb2b3
+  tasks:
+  - choice
+  - noul
+  - score
+  lora: null
+  query_length: 4096
+  document_length: 2048
+  query_truncation: balanced
+  attention_backend: flash_attention_2
+  gradient_checkpointing: true
+  frozen_linear_bf16: false
+  fused_rotary: true
+data:
+  root:
+    repo_id: hotchpotch/saihai-v1-310m-dataset
+    revision: c00c6f122a42f950a5e58582d69c34d1263250c3
+    configs:
+    - all-mixed
+    token: true
+  sampling: uniform
+  epoch_fraction: 1.0
+  prefix_layout_weights:
+    instruction_state: 1
+    state_instruction: 1
+evaluation:
+  validation_samples: 120
+  validation_sampling: balanced
+  validation_seed: 42
+  prefix_layouts:
+  - instruction_state
+  - state_instruction
+  before_training: false
+  token_budget: 4096
+training:
+  output_dir: output/saihai-v1-310m
+  device: cuda
+  batch_size: 512
+  learning_rate: 1.0e-05
+  head_learning_rate: 0.0002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler: cosine
+  eval_steps: 250
+  initial_tokens: 8192
+  max_tokens: 65536
+  memory_fraction: 0.75
+wandb:
+  mode: offline
+  project: bekko-system-one
+  group: saihai-v1-310m
+  log_every: 10
