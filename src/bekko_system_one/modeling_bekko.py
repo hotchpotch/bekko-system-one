@@ -1,6 +1,7 @@
 """Standalone Transformers AutoModel interface for exported typed decisions."""
 
 import json
+import math
 from pathlib import Path
 
 import torch
@@ -85,6 +86,93 @@ class BekkoModel(PreTrainedModel):
         """Return typed Noul, Choice, Score or ranking results."""
         return self.runtime.predict(inputs, **kwargs)
 
+    @staticmethod
+    def _systemone_input(request):
+        if not isinstance(request, dict) or set(request) - {"state", "questions"}:
+            raise ValueError("Expected state and questions only")
+        questions = request["questions"]
+        if not isinstance(questions, dict) or not 1 <= len(questions) <= 64:
+            raise ValueError("Expected 1..64 named questions")
+        decisions = []
+        for qid, question in questions.items():
+            if not isinstance(qid, str) or not qid:
+                raise ValueError("Question IDs must be nonempty strings")
+            if not isinstance(question, dict) or set(question) - {"type", "instructions", "criteria"}:
+                raise ValueError("Questions accept type, instructions and criteria")
+            kind = question["type"]
+            criteria = question.get("criteria")
+            if kind == "noul":
+                criteria = {"false": "false", "true": "true"} if criteria is None else criteria
+                if not isinstance(criteria, dict) or set(criteria) != {"false", "true"}:
+                    raise ValueError("Noul criteria require false and true")
+                options = [(key, criteria[key], None) for key in ("false", "true")]
+            elif kind == "choice":
+                if not isinstance(criteria, dict) or not criteria:
+                    raise ValueError("Choice criteria must be a nonempty ordered object")
+                options = [(key, description, None) for key, description in criteria.items()]
+            elif kind == "score":
+                if not isinstance(criteria, list) or not 2 <= len(criteria) <= 10:
+                    raise ValueError("Score criteria require 2..10 rubric levels")
+                options = []
+                for index, criterion in enumerate(criteria):
+                    if isinstance(criterion, dict):
+                        if set(criterion) != {"description", "value"}:
+                            raise ValueError("Numeric rubric levels require description and value")
+                        description, value = criterion["description"], criterion["value"]
+                    else:
+                        description, value = criterion, index
+                    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                        raise ValueError("Score values must be finite numbers")
+                    options.append((str(index), description, value))
+                if len({value for _, _, value in options}) != len(options):
+                    raise ValueError("Score values must be distinct")
+            else:
+                raise ValueError("Unsupported decision type")
+            if any(not isinstance(key, str) or not key or not isinstance(desc, str) for key, desc, _ in options):
+                raise ValueError("Criterion IDs and descriptions must be nonempty IDs and string descriptions")
+            instructions = question.get("instructions", qid)
+            if not isinstance(instructions, str):
+                raise ValueError("Instructions must be a string")
+            decisions.append(dict(
+                id=qid, kind="judgment", type=kind,
+                instructions_json=json.dumps(instructions, ensure_ascii=False, allow_nan=False),
+                system_prompt="", documents=[], scoring=None,
+                criteria=[dict(id=key, description_json=json.dumps(desc, ensure_ascii=False), value=value)
+                          for key, desc, value in options],
+            ))
+        return dict(state_json=json.dumps(request["state"], ensure_ascii=False, allow_nan=False),
+                    decisions=decisions)
+
+    def systemone(self, request, **kwargs):
+        """Accept state/named questions; return answers, or a list for batched requests.
+
+        This convenience interface does not report token usage or confidence.
+        Score is the expected rubric index; explicit numeric values also return
+        expected_value. Native predict() retains its numeric-score semantics.
+        """
+        single = isinstance(request, dict)
+        requests = [request] if single else list(request)
+        inputs = [self._systemone_input(item) for item in requests]
+        predictions = self.predict(inputs, **kwargs)
+        responses = []
+        for item, prediction in zip(requests, predictions, strict=True):
+            answers = {}
+            for qid, question in item["questions"].items():
+                result = prediction[qid]
+                answer = dict(type=question["type"], probabilities=result["probabilities"])
+                if question["type"] == "noul":
+                    answer["noul"] = result["probability_yes"]
+                elif question["type"] == "choice":
+                    answer["choice"] = result["selected_id"]
+                else:
+                    answer.update(
+                        score=sum(int(key) * value for key, value in result["probabilities"].items()),
+                        expected_value=result["score"], numeric_values=result["values"],
+                    )
+                answers[qid] = answer
+            responses.append(dict(answers=answers))
+        return responses[0] if single else responses
+
     def forward(self, features):
         """Run already-tokenized portable runtime features."""
         return self.runtime(features)
@@ -92,6 +180,9 @@ class BekkoModel(PreTrainedModel):
     def compile_inference(self, **kwargs):
         self.runtime.compile_inference(**kwargs)
         return self
+
+    def disable_compile(self):
+        self.runtime.disable_compile()
 
     def save_pretrained(self, save_directory, **kwargs):
         """Save an independently reloadable AutoModel and ST-compatible runtime."""

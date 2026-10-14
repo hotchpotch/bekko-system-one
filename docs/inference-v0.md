@@ -74,6 +74,33 @@ result = model.predict(request)
 model.save_pretrained("resaved-model")
 ```
 
+For named application questions, the AutoModel wrapper also offers a compact
+interface:
+
+```python
+response = model.systemone({
+    "state": "Please refund the duplicate payment.",
+    "questions": {
+        "refund": {"type": "noul", "instructions": "Is a refund requested?"},
+        "department": {"type": "choice", "criteria": {
+            "billing": "Payments and refunds", "technical": "Technical support",
+        }},
+        "urgency": {"type": "score", "criteria": ["Normal", "Priority", "Immediate"]},
+    },
+}, show_progress_bar=False)
+print(response["answers"]["refund"]["noul"])
+```
+
+`systemone()` accepts state plus 1–64 named questions, or a list of these requests
+for batching. Noul optionally accepts authored `false` and `true` descriptions.
+Choice preserves criterion keys and returns `choice` and `probabilities`.
+Score accepts 2–10 ordered descriptions or `{description, value}` objects:
+`score` is the expected zero-based rubric index, while `expected_value` averages
+explicit numeric values. `numeric_values` records their mapping. Native
+`predict()` continues to return numeric expectation as `score`.
+Only `answers` is returned; token usage and confidence are not reported.
+`compile_inference()` and `disable_compile()` apply to both interfaces.
+
 The wrapper retains the Sentence Transformers module layout and reuses the
 same weights and typed runtime. `save_pretrained()` preserves independently
 loadable code and tokenizer. A single-device `device_map={"": "cuda:0"}` is
