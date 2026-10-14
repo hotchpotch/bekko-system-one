@@ -57,6 +57,32 @@ result = model.predict(request)
 # model.disable_compile() restores eager execution.
 ```
 
+## Transformers AutoModel
+
+New exports also include `config.json` and standalone `modeling_bekko.py`,
+allowing the standard Transformers loader without installing Bekko:
+
+```python
+from transformers import AutoModel
+
+model = AutoModel.from_pretrained(
+    "PATH_OR_HUB_MODEL_ID", trust_remote_code=True,
+    device="cpu", attn_implementation="sdpa",
+    # revision="FULL_COMMIT_HASH", token=True,  # For a private Hub model.
+)
+result = model.predict(request)
+model.save_pretrained("resaved-model")
+```
+
+The wrapper retains the Sentence Transformers module layout and reuses the
+same weights and typed runtime. `save_pretrained()` preserves independently
+loadable code and tokenizer. A single-device `device_map={"": "cuda:0"}` is
+supported; automatic sharding and quantized loading are not supported.
+`dtype` may be a torch dtype or its name; the default retains FP32 weights.
+Attention selection follows the same CPU/CUDA policy as the ST interface.
+Pin a full Hub revision to load configuration, tokenizer and weights together.
+Older exports require the new AutoClass metadata/code before using this API.
+
 ## Attention backend selection
 
 `BekkoSentenceTransformer` defaults to `attn_implementation="auto"`. It selects

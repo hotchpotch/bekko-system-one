@@ -12,6 +12,7 @@ from sentence_transformers import SentenceTransformer
 
 from .inference_v0 import BekkoInference, BekkoSentenceTransformer
 from .modules import DecisionHeads, SharedPrefix
+from .modeling_bekko import write_automodel_files
 
 
 def runtime_source():
@@ -86,6 +87,7 @@ def export_model(checkpoint, output):
     assert len(modules) == 1
     modules[0]["type"] = "inference_v0.BekkoInference"
     (output / "modules.json").write_text(json.dumps(modules, indent=2) + "\n")
+    write_automodel_files(output)
     (output / "requirements.txt").write_text(
         "torch>=2.10,<2.11\ntransformers==5.17.0\nsentence-transformers==6.1.0\nsafetensors>=0.7\ntqdm>=4.67\n"
     )

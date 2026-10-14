@@ -61,14 +61,11 @@ weights and tokenizer. Install the exported requirements.txt for inference.
 The native checkpoint is also retained under checkpoint/ in the model release.
 
 ```python
-from transformers.dynamic_module_utils import get_class_from_dynamic_module
+from transformers import AutoModel
 
 repo = "hotchpotch/saihai-v1-310m"
 revision = "FULL_COMMIT_HASH"
-cls = get_class_from_dynamic_module(
-    "inference_v0.BekkoSentenceTransformer", repo, revision=revision, token=True,
-)
-model = cls(repo, revision=revision, token=True, trust_remote_code=True,
+model = AutoModel.from_pretrained(repo, revision=revision, token=True, trust_remote_code=True,
             device="cpu", attn_implementation="sdpa")
 # request is a native input object with state_json and ordered decisions.
 result = model.predict(request, query_length=4096, document_length=2048)
