@@ -44,8 +44,10 @@ def prepare_shared_inference(model, *, precast_linear=True, fused_ops=True):
     training or save_pretrained artifact; save the source checkpoint instead.
     """
     encoder = model[0]
-    if not isinstance(encoder, SharedPrefix) or not isinstance(
-        encoder.encoder, PackedPrefixEncoder
+    if (
+        not isinstance(encoder, SharedPrefix)
+        or getattr(encoder, "joint_candidates", False)
+        or not isinstance(encoder.encoder, PackedPrefixEncoder)
     ):
         raise ValueError("A shared-prefix model with token packing is required")
     if (
@@ -263,7 +265,7 @@ def inference_runtime(model, mode):
     """Resolve optimized CUDA/FA2 inference, with the portable legacy fallback."""
     if mode not in {"optimized", "fast", "legacy"}:
         raise ValueError("inference must be 'optimized', 'fast' or 'legacy'")
-    if mode == "legacy":
+    if mode == "legacy" or getattr(model[0], "joint_candidates", False):
         return None
     with _RUNTIME_LOCK:
         revision = (_revision(model), mode)

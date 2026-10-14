@@ -581,6 +581,7 @@ def _run(config, max_steps, tracker):
     if checkpoint is not None:
         allowed = {
             "query_length",
+            "max_length",
             "query_truncation",
             "document_length",
             "attention_backend",

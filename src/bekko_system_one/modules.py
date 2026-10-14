@@ -304,6 +304,7 @@ class SharedPrefix(InputModule):
         overrides = kwargs.get("model_kwargs") or {}
         for key in (
             "query_length",
+            "max_length",
             "query_truncation",
             "document_length",
             "attention_backend",
@@ -312,6 +313,8 @@ class SharedPrefix(InputModule):
             "fused_rotary",
         ):
             if key in overrides:
+                if key == "max_length" and key not in settings:
+                    raise ValueError("max_length overrides require a joint encoder")
                 settings[key] = overrides[key]
         config_path = cls.load_file_path(model_name_or_path, "backbone_config.json", **hub)
         if config_path is None:

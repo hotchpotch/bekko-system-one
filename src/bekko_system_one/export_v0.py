@@ -31,6 +31,7 @@ def portable_module(model, *, prefix_layout="instruction_state"):
     if (
         len(model) != 2
         or not isinstance(model[0], SharedPrefix)
+        or getattr(model[0], "joint_candidates", False)
         or not isinstance(model[1], DecisionHeads)
     ):
         raise ValueError("Expected a SharedPrefix + DecisionHeads training checkpoint")

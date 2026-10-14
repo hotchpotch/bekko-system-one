@@ -138,15 +138,17 @@ def prepare_groups(groups, encoder):
 
 def collate_groups(groups, encoder):
     queries, docs, owners, seen, indices = [], [], [], {}, {}
-    for group in groups:
-        if group.key not in seen:
-            seen[group.key] = len(queries)
+    for group_index, group in enumerate(groups):
+        # Joint listwise attention is decision-local, even for identical queries.
+        key = group_index if getattr(encoder, "joint_candidates", False) else group.key
+        if key not in seen:
+            seen[key] = len(queries)
             queries.append(group.query)
         indices.setdefault(group.task, []).extend(
             range(len(docs), len(docs) + len(group.documents))
         )
         docs.extend(group.documents)
-        owners.extend([seen[group.key]] * len(group.documents))
+        owners.extend([seen[key]] * len(group.documents))
     features = encoder.collate_tokens(queries, docs, owners)
     features["head_indices"] = {next(iter(indices)): None} if len(indices) == 1 else indices
     choice_rows, offset = [], 0

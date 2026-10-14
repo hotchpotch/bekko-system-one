@@ -38,8 +38,8 @@ examples usable from a fresh checkout.
 - Respect explicit dataset splits. Never use test data as validation or silently
   repartition a release. Record revisions and sampling settings for reproducibility.
 - Keep candidate groups complete through batching, accumulation, and OOM replay.
-  Candidates remain independent in the encoder; optional Choice interaction is
-  scoped to one decision after pooling.
+  Shared-prefix and cross-encoder candidates remain independent in the encoder;
+  listwise attention and optional pooled Choice interaction stay within one decision.
 - Keep training and inference rendering, prefix order, truncation, and task-marker
   behavior aligned. Check saved/reloaded and exported models when changing these.
 - Standalone exports must run without importing this package. Keep browser export

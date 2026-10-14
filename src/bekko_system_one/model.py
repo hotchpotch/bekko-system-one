@@ -9,10 +9,17 @@ from .modules import DecisionHeads, SharedPrefix
 
 
 def build_model(
-    model_name_or_path, *, tasks=("reranker",), device="cuda", choice_interaction=None, **kwargs
+    model_name_or_path, *, tasks=("reranker",), device="cuda", choice_interaction=None, architecture="shared_prefix", **kwargs
 ):
     kwargs.setdefault("lora", dict(rank=16, alpha=32, dropout=0.0))
-    encoder = SharedPrefix(model_name_or_path, **kwargs)
+    if architecture == "shared_prefix":
+        encoder = SharedPrefix(model_name_or_path, **kwargs)
+    elif architecture in {"cross_encoder", "listwise"}:
+        from .joint import JointEncoder
+
+        encoder = JointEncoder(model_name_or_path, architecture=architecture, **kwargs)
+    else:
+        raise ValueError("architecture must be shared_prefix, cross_encoder or listwise")
     return SentenceTransformer(
         modules=[encoder, DecisionHeads(encoder.hidden_size, tasks, choice_interaction=choice_interaction)],
         device=device,
@@ -102,6 +109,9 @@ def rank(model, query, documents, *, chunk_size=32, inference="optimized", task=
     try:
         model.eval()
         runtime = inference_runtime(model, inference)
+        if getattr(model[0], "joint_candidates", False):
+            features = prepare_batch(model, [Group(query, documents, task)])
+            return model(features)["scores"].flatten().float().cpu()
         active = runtime.model if runtime is not None else model
         encoder = active[0]
         with torch.autocast(

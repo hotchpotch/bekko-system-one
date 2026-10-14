@@ -3,6 +3,7 @@
 See the [README](../README.md) for installation and [v0 recipes](training-v0.md)
 for model-size-specific training. Run commands from the repository root.
 
+- [Encoder architectures](architectures.md)
 - [Data](#data)
 - [Task markers](#task-markers-after-the-shared-prefix)
 - [Typed-decision releases](#training-from-typed-decision-releases)
@@ -16,7 +17,8 @@ for model-size-specific training. Run commands from the repository root.
 - [Capped alpha sampling](#capped-alpha-sampling)
 - [Choice interaction](#optional-choice-interaction)
 
-The group-aware loop calls the `SharedPrefix` and `DecisionHeads` Sentence
+The group-aware loop calls the configured encoder (`SharedPrefix` by default,
+or `JointEncoder` for cross-encoder/listwise models) and `DecisionHeads` Sentence
 Transformers modules directly. It uses separate encoder/LoRA and head learning
 rates, FP32 loss, clipping, warmup, configurable scheduling, and adaptive
 microbatch accumulation rather than the default text-pair training collator.

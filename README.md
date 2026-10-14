@@ -295,6 +295,7 @@ benchmark results, not measurements from the quickstart smoke run.
 - [Evaluation and limitations](docs/evaluation.md): interpreting and reporting results.
 - [Troubleshooting](docs/troubleshooting.md): setup, data, memory, and export errors.
 - [Training reference](docs/training.md): data formats, sampling, truncation, and heads.
+- [Candidate encoder architectures](docs/architectures.md): shared-prefix, cross-encoder and listwise models.
 - [Saihai v1 310M training](docs/saihai-v1-310m.md): Japanese mixed data, the pinned recipe, and reproduction.
 - [v0 training recipes](docs/training-v0.md): model sizes, budgets, tracking, and artifacts.
 - [Package inference](docs/inference.md): checkpoint loading, typed results, and performance.

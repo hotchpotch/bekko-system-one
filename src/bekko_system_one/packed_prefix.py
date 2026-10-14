@@ -158,6 +158,18 @@ class PackedPrefixEncoder(PrefixEncoder):
         )
         return self._packed_update(layer, hidden, attended), k, v
 
+    def encode_bidirectional(self, ids, mask):
+        """Encode independent complete sequences, with no prefix attention restriction."""
+        layout = TokenLayout.from_mask(mask)
+        hidden = self.backbone.embeddings(ids.flatten().index_select(0, layout.indices))
+        rotary = self._rotary(hidden, layout.positions)
+        for layer in self.backbone.layers:
+            hidden, _, _ = self._run_layer(
+                partial(self._packed_prefix_layer, layer),
+                hidden, rotary[layer.attention_type], layout,
+            )
+        return self.backbone.final_norm(hidden)
+
     def encode_prefix(self, ids, mask, *, layout=None):
         if layout is None:
             layout = TokenLayout.from_mask(mask)
