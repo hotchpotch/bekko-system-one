@@ -1,5 +1,7 @@
 # Training Saihai v1 310M
 
+> 日本語での紹介記事はこちら: [日本語 Decision モデル "saihai" (采配) と、日本語 Decision モデルベンチマークの公開](https://secon.dev/entry/2026/10/15/100000-saihai-japanese-decision-benchmark/)
+
 [Saihai v1 310M](https://huggingface.co/hotchpotch/saihai-v1-310m) is a Japanese
 Typed Decision Model trained from
 [cl-nagoya/ruri-v3-reranker-310m](https://huggingface.co/cl-nagoya/ruri-v3-reranker-310m).
